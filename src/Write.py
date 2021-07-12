@@ -144,13 +144,13 @@ class Write:
                 # Reach
                 reach_file = Path(self.temp_dir.name) / f"Reach_{key.upper()}.nc"
                 reach_dataset = Dataset(reach_file, 'w', format="NETCDF4")
-                self.define_global_attrs(reach_dataset, "Reach", key)
+                self.__define_global_attrs(reach_dataset, "Reach", key)
                 self.write_reach_data(self.reach_data[key], reach_dataset)
                 reach_dataset.close()
                 # Node
                 node_file = Path(self.temp_dir.name) / f"Node_{key.upper()}.nc"
                 node_dataset = Dataset(node_file, 'w', format="NETCDF4")
-                self.define_global_attrs(node_dataset, "Node", key)
+                self.__define_global_attrs(node_dataset, "Node", key)
                 self.write_node_data(self.node_data[key], node_dataset)
                 node_dataset.close()
 
