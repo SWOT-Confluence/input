@@ -36,7 +36,7 @@ class TestWrite(unittest.TestCase):
 
         swot_file = Path(temp_dir) / "77449100061_SWOT.nc"
         swot = Dataset(swot_file)
-        self.assertEqual("77449100061", swot.reach_id)
+        self.assertEqual(77449100061, swot.reach_id)
         self.assertEqual(49, len(swot["node"]["node_id"]))
         
         # Reach
@@ -46,6 +46,8 @@ class TestWrite(unittest.TestCase):
         np.testing.assert_array_almost_equal(expected_wse, swot["reach"]["wse"][:].filled(np.nan))
         expected_slope = np.array([0.00010045794, np.nan, 0.00010173043, 9.540541e-05, np.nan, 0.00011160423, 9.765124e-05, np.nan, 0.00010503138, 8.985157e-05, np.nan, 9.279268e-05, 0.00010460104, np.nan, 0.00010018548, 0.00013338136, np.nan, 0.00010086814, 0.00011058383, np.nan, 9.262967e-05, 1.900279e-05, np.nan, 6.059819e-05, 8.804341e-05])
         np.testing.assert_array_almost_equal(expected_slope, swot["reach"]["slope2"][:].filled(np.nan))
+        expected_dxa = np.array([-842.2044029, np.nan, -551.766112, -789.73331382, np.nan, -805.94259508, -562.88294229, np.nan, -463.77205172, -539.18129047, np.nan, -480.70395691, -577.45243603, np.nan, -642.45921666, -569.39455673, np.nan, -583.28948871, -563.43122025, np.nan, -527.68729855, -596.39991641, np.nan, -662.4912515,  -902.31105895])
+        np.testing.assert_array_almost_equal(expected_dxa, swot["reach"]["d_x_area"][:].filled(np.nan))
 
         # Node
         expected_width = np.array([78.445637, np.nan, 52.805209, 63.560909, np.nan, 19.974453, 112.487676, np.nan, 71.697159, 40.530711, np.nan, 73.463351, 63.959729, np.nan, 75.655664, 64.405578, np.nan, 77.255957, 90.899459, np.nan, 68.158165, 81.919875, np.nan, 48.743772, 71.174781])
@@ -53,6 +55,7 @@ class TestWrite(unittest.TestCase):
         expected_wse = np.array([7.69254, np.nan, 7.7044, 7.79272, np.nan, 6.77293, 14.44554, np.nan, 9.28703, 6.89793, np.nan, 8.54086, 7.86859, np.nan, 8.36375, 8.07284, np.nan, 8.32636, 8.41337, np.nan, 8.19125, 8.28667, np.nan, 8.32908, 8.61688])
         np.testing.assert_array_almost_equal(expected_wse, swot["node"]["wse"][:].filled(np.nan)[5,:])
         np.testing.assert_array_almost_equal(expected_slope, swot["node"]["slope2"][0,:].filled(np.nan))
+        np.testing.assert_array_almost_equal(expected_dxa, swot["node"]["d_x_area"][0,:].filled(np.nan))
 
         # Remove written files
         swot.close()

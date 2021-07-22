@@ -63,9 +63,6 @@ class TestExtract(unittest.TestCase):
             dirs = sorted([ entry.path for entry in entries ])
         ext = Extract()
         ext.extract_data_local(dirs)
-
-        # pd.set_option("display.max_rows", None, "display.max_columns", None)
-        # print(ext.reach_data)
         
         # reach-level data
         reach = ext.reach_data["na"]

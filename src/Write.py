@@ -111,7 +111,7 @@ class Write:
         """
 
         dataset.title = f"SWOT Data for Reach {reach_id}"
-        dataset.reach_id = reach_id
+        dataset.reach_id = int(reach_id)
         dataset.history = datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S")
         dataset.continent = self.continents[cont]
 
