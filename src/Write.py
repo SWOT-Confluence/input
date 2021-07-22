@@ -1,5 +1,6 @@
 # Standard imports
 from datetime import datetime
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -124,8 +125,8 @@ class Write:
         """
 
         for key in self.continents.keys():
-            if self.reach_data[key] is not None and self.node_data[key] is not None:
-                reach_ids = self.reach_data[key]["reach_id"]
+            if self.reach_data[key] and self.node_data[key]:
+                reach_ids = list(self.reach_data[key]["width"].index)
                 for reach_id in reach_ids:
                     # NetCDF4 dataset
                     reach_file = Path(self.temp_dir.name) / f"{reach_id}_SWOT.nc"
@@ -135,18 +136,17 @@ class Write:
                     node_group = dataset.createGroup("node")
 
                     # Dimension and data
-                    reach_i = np.where(self.reach_data[key]["reach_id"] == reach_id)
-                    node_i = np.where(self.node_data["na"]["reach_id"] == reach_id)
-                    self.__create_dimensions(np.size(node_i), 
-                                            self.node_data[key]["nt"], dataset)
+                    nt = self.reach_data[key]["nt"]
+                    nx = len(self.node_data[key]["width"].loc[self.node_data[key]["width"]["reach_id"] == reach_id].index)
+                    self.__create_dimensions(nx, nt, dataset)
 
                     # Reach and node data
-                    self.__write_reach_vars(self.reach_data[key], reach_group, reach_id, reach_i)
-                    self.__write_node_vars(self.node_data[key], node_group, reach_id, node_i)
+                    self.__write_reach_vars(self.reach_data[key], reach_group, reach_id)
+                    self.__write_node_vars(self.node_data[key], node_group, reach_id)
 
                     dataset.close()
         
-    def __write_node_vars(self, data, dataset, reach_id, indexes):
+    def __write_node_vars(self, data, dataset, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
         
         Parameters:
@@ -156,8 +156,6 @@ class Write:
             reach-level dataset to write variables to
         reach_id: int
             unique reach identifier value
-        indexes: list
-            node_id int indexes to locate values in data
         """
 
         reach_id_v = dataset.createVariable("reach_id", "i8")
@@ -165,14 +163,14 @@ class Write:
         reach_id_v.comment = "Unique reach identifier from the prior river " \
             + "database. The format of the identifier is CBBBBBRRRRT, where " \
             + "C=continent, B=basin, R=reach, T=type."
-        reach_id_v.assignValue(reach_id.item())
+        reach_id_v.assignValue(int(reach_id))
 
         node_id = dataset.createVariable("node_id", "i8", ("nx",))
         node_id.long_name = "node ID of the node in the prior river database"
         node_id.comment = "Unique node identifier from the prior river " \
             + "database. The format of the identifier is CBBBBBRRRRNNNT, " \
             + "where C=continent, B=basin, R=reach, N=node, T=type."
-        node_id[:] = data["node_id"][indexes].astype(int)
+        node_id[:] = np.array(data["width"].loc[data["width"]["reach_id"] == reach_id].index, dtype=int)
 
         dxa = dataset.createVariable("d_x_area", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -180,9 +178,7 @@ class Write:
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
-        dx = np.transpose(np.squeeze(data["d_x_area"][:, indexes]))
-        np.nan_to_num(dx, copy=False, nan=self.FLOAT_FILL)
-        dxa[:] = dx
+        dxa[:] = np.nan_to_num(data["d_x_area"].loc[data["d_x_area"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -192,9 +188,7 @@ class Write:
         slope2.valid_max = 0.1
         slope2.comment = "slope2 extracted from reach level data and " \
             + "appended to node."
-        s = np.transpose(np.squeeze(data["slope2"][:, indexes]))
-        np.nan_to_num(s, copy=False, nan=self.FLOAT_FILL)
-        slope2[:] = s
+        slope2[:] = np.nan_to_num(data["slope2"].loc[data["slope2"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -202,9 +196,7 @@ class Write:
         width.units = "m"
         width.valid_min = 0.0
         width.valid_max = 100000
-        w = np.transpose(np.squeeze(data["width"][:, indexes]))
-        np.nan_to_num(w, copy=False, nan=self.FLOAT_FILL)
-        width[:] = w
+        width[:] = np.nan_to_num(data["width"].loc[data["width"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         wse = dataset.createVariable("wse", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -212,9 +204,7 @@ class Write:
         wse.units = "m"
         wse.valid_min = -1000
         wse.valid_max = 100000
-        ws = np.transpose(np.squeeze(data["wse"][:, indexes]))
-        np.nan_to_num(ws, copy=False, nan=self.FLOAT_FILL)
-        wse[:] = ws
+        wse[:] = np.nan_to_num(data["wse"].loc[data["wse"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
         
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
             fill_value=self.INT_FILL)
@@ -228,9 +218,7 @@ class Write:
         node_q.comment = "Summary quality indicator for the node " \
             + "measurement. Values of 0 and 1 indicate nominal and " \
             + "off-nominal measurements."
-        nq = np.transpose(np.squeeze(data["node_q"][:, indexes]))
-        np.nan_to_num(nq, copy=False, nan=self.INT_FILL)
-        node_q[:] = nq
+        node_q[:] = np.nan_to_num(data["node_q"].loc[data["node_q"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -239,9 +227,7 @@ class Write:
         dark_frac.valid_min = 0
         dark_frac.valid_max = 1
         dark_frac.comment = "Fraction of node area_total covered by dark water."
-        df = np.transpose(np.squeeze(data["dark_frac"][:, indexes]))
-        np.nan_to_num(df, copy=False, nan=self.FLOAT_FILL)
-        dark_frac[:] = df
+        dark_frac[:] = np.nan_to_num(data["dark_frac"].loc[data["dark_frac"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         ice_clim_f = dataset.createVariable("ice_clim_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -259,9 +245,7 @@ class Write:
             + "that the node is likely not ice covered, may or may not be " \
             + "partially or fully ice covered, and likely fully ice covered, " \
             + "respectively."
-        icf = np.transpose(np.squeeze(data["ice_clim_f"][:, indexes]))
-        np.nan_to_num(icf, copy=False, nan=self.INT_FILL)
-        ice_clim_f[:] = icf
+        ice_clim_f[:] = np.nan_to_num(data["ice_clim_f"].loc[data["ice_clim_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
 
         ice_dyn_f = dataset.createVariable("ice_dyn_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -277,9 +261,7 @@ class Write:
             + "based on analysis of external satellite optical data. Values " \
             + "of 0, 1, and 2 indicate that the node is not ice covered, " \
             + "partially ice covered, and fully ice covered, respectively."
-        idf = np.transpose(np.squeeze(data["ice_dyn_f"][:, indexes]))
-        np.nan_to_num(idf, copy=False, nan=self.INT_FILL)
-        ice_dyn_f[:] = idf
+        ice_dyn_f[:] = np.nan_to_num(data["ice_dyn_f"].loc[data["ice_dyn_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
 
         partial_f = dataset.createVariable("partial_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -293,9 +275,7 @@ class Write:
             + "coverage. The flag is 0 if at least 10 pixels have a valid " \
             + "WSE measurement; the flag is 1 otherwise and node-level " \
             + "quantities are not computed."
-        pf = np.transpose(np.squeeze(data["partial_f"][:, indexes]))
-        np.nan_to_num(pf, copy=False, nan=self.INT_FILL)
-        partial_f[:] = pf
+        partial_f[:] = np.nan_to_num(data["partial_f"].loc[data["partial_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
 
         n_good_pix = dataset.createVariable("n_good_pix", "i4", ("nx", "nt"),
             fill_value = self.INT_FILL)
@@ -305,9 +285,7 @@ class Write:
         n_good_pix.valid_max = 100000
         n_good_pix.comment = "Number of pixels assigned to the node that " \
             + "have a valid node WSE."
-        ngp = np.transpose(np.squeeze(data["n_good_pix"][:, indexes]))
-        np.nan_to_num(ngp, copy=False, nan=self.INT_FILL)
-        n_good_pix[:] = ngp
+        n_good_pix[:] = np.nan_to_num(data["n_good_pix"].loc[data["n_good_pix"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
 
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -318,11 +296,9 @@ class Write:
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
-        xcq = np.transpose(np.squeeze(data["xovr_cal_q"][:, indexes]))
-        np.nan_to_num(xcq, copy=False, nan=self.INT_FILL)
-        xovr_cal_q[:] = xcq  
+        xovr_cal_q[:] = np.nan_to_num(data["xovr_cal_q"].loc[data["xovr_cal_q"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)  
 
-    def __write_reach_vars(self, data, dataset, reach_id, index):
+    def __write_reach_vars(self, data, dataset, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
         
         Parameters:
@@ -332,8 +308,6 @@ class Write:
             reach-level dataset to write variables to
         reach_id: int
             unique reach identifier value
-        index: int
-            reach_id index to locate values in data
         """
 
         reach_id_v = dataset.createVariable("reach_id", "i8")
@@ -341,7 +315,7 @@ class Write:
         reach_id_v.comment = "Unique reach identifier from the prior river " \
             + "database. The format of the identifier is CBBBBBRRRRT, where " \
             + "C=continent, B=basin, R=reach, T=type."
-        reach_id_v.assignValue(reach_id.item())
+        reach_id_v.assignValue(int(reach_id))
         
         dxa = dataset.createVariable("d_x_area", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -349,9 +323,7 @@ class Write:
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
-        d = np.squeeze(data["d_x_area"][:, index].flatten('C'))
-        np.nan_to_num(d, copy=False, nan=self.FLOAT_FILL)
-        dxa[:] = d
+        dxa[:] = np.nan_to_num(data["d_x_area"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -359,9 +331,7 @@ class Write:
         slope2.units = "m/m"
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
-        s = np.squeeze(data["slope2"][:, index].flatten('C'))
-        np.nan_to_num(s, copy=False, nan=self.FLOAT_FILL)
-        slope2[:] = s
+        slope2[:] = np.nan_to_num(data["slope2"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
@@ -369,9 +339,7 @@ class Write:
         width.units = "m"
         width.valid_min = 0.0
         width.valid_max = 100000
-        w = np.squeeze(data["width"][:, index].flatten('C'))
-        np.nan_to_num(w, copy=False, nan=self.FLOAT_FILL)
-        width[:] = w
+        width[:] = np.nan_to_num(data["width"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         wse = dataset.createVariable("wse", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -379,9 +347,7 @@ class Write:
         wse.units = "m"
         wse.valid_min = -1000
         wse.valid_max = 100000
-        ws = np.squeeze(data["wse"][:, index].flatten('C'))
-        np.nan_to_num(ws, copy=False, nan=self.FLOAT_FILL)
-        wse[:] = ws
+        wse[:] = np.nan_to_num(data["wse"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -395,9 +361,7 @@ class Write:
         reach_q.comment = "Summary quality indicator for the reach " \
             + "measurement. Values of 0 and 1 indicate nominal (good) " \
             + "and off-nominal (suspect) measurements."
-        rq = np.squeeze(data["reach_q"][:, index].flatten('C'))
-        np.nan_to_num(rq, copy=False, nan=self.INT_FILL)
-        reach_q[:] = rq
+        reach_q[:] = np.nan_to_num(data["reach_q"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -406,9 +370,7 @@ class Write:
         dark_frac.valid_min = -1000
         dark_frac.valid_max = 10000
         dark_frac.comment = "Fraction of reach area_total covered by dark water."
-        df = np.squeeze(data["dark_frac"][:, index].flatten('C'))
-        np.nan_to_num(df, copy=False, nan=self.FLOAT_FILL)
-        dark_frac[:] = df
+        dark_frac[:] = np.nan_to_num(data["dark_frac"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         ice_clim_f = dataset.createVariable("ice_clim_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -426,9 +388,7 @@ class Write:
             + "that the reach is likely not ice covered, may or may not be " \
             + "partially or fully ice covered, and likely fully ice covered, " \
             + "respectively."
-        icf = np.squeeze(data["ice_clim_f"][:, index].flatten('C'))
-        np.nan_to_num(icf, copy=False, nan=self.INT_FILL)
-        ice_clim_f[:] = icf
+        ice_clim_f[:] = np.nan_to_num(data["ice_clim_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
 
         ice_dyn_f = dataset.createVariable("ice_dyn_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -444,9 +404,7 @@ class Write:
             + "based on analysis of external satellite optical data. Values " \
             + "of 0, 1, and 2 indicate that the reach is not ice covered, " \
             + "partially ice covered, and fully ice covered, respectively."
-        idf = np.squeeze(data["ice_dyn_f"][:, index].flatten('C'))
-        np.nan_to_num(idf, copy=False, nan=self.INT_FILL)
-        ice_dyn_f[:] = idf
+        ice_dyn_f[:] = np.nan_to_num(data["ice_dyn_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
 
         partial_f = dataset.createVariable("partial_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -460,9 +418,7 @@ class Write:
             + "coverage. The flag is 0 if at least half the nodes of the " \
             + "reach have valid WSE measurements; the flag is 1 otherwise " \
             + "and reach-level quantities are not computed."
-        pf = np.squeeze(data["partial_f"][:, index].flatten('C'))
-        np.nan_to_num(pf, copy=False, nan=self.INT_FILL)
-        partial_f[:] = pf
+        partial_f[:] = np.nan_to_num(data["partial_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
 
         n_good_nod = dataset.createVariable("n_good_nod", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -474,9 +430,7 @@ class Write:
         n_good_nod.comment = "Number of nodes in the reach that have " \
             + "a valid node WSE. Note that the total number of nodes " \
             + "from the prior river database is given by p_n_nodes."
-        ngn = np.squeeze(data["n_good_nod"][:, index].flatten('C'))
-        np.nan_to_num(ngn, copy=False, nan=self.INT_FILL)
-        n_good_nod[:] = ngn
+        n_good_nod[:] = np.nan_to_num(data["n_good_nod"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
 
         obs_frac_n = dataset.createVariable("obs_frac_n", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -487,9 +441,7 @@ class Write:
         obs_frac_n.comment = "Fraction of nodes (n_good_nod/p_n_nodes) " \
             + "in the reach that have a valid node WSE. The value is " \
             + "between 0 and 1."
-        ofn = np.squeeze(data["obs_frac_n"][:, index].flatten('C'))
-        np.nan_to_num(ofn, copy=False, nan=self.FLOAT_FILL)
-        obs_frac_n[:] = ofn
+        obs_frac_n[:] = np.nan_to_num(data["obs_frac_n"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -500,6 +452,4 @@ class Write:
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
-        xcq = np.squeeze(data["xovr_cal_q"][:, index].flatten('C'))
-        np.nan_to_num(xcq, copy=False, nan=self.INT_FILL)
-        xovr_cal_q[:] = xcq
+        xovr_cal_q[:] = np.nan_to_num(data["xovr_cal_q"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
