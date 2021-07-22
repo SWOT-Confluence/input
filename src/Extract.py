@@ -10,6 +10,10 @@ Functions
 ---------
 calculate_d_x_a(wse, width)
     Calculate and return the change in area.
+create_node_dict(node_ids)
+    Initialize an empty node dict of dataframe values and reach/node ids
+create_reach_dict(reach_ids)
+    Initialize an empty reach dict of dataframe values and reach ids
 extract_node_local(node_path, time, node_dict, sac_node)
     Extracts node data from file at node_path and stores in node_dict.
 extract_reach_local(reach_path, time, reach_dict, sac_reach)
@@ -21,9 +25,9 @@ import json
 from pathlib import Path
 
 # Third-party imports
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import shapefile as shp
 
 class Extract:
     """A class that extracts and concatenates SWOT observations from shapefiles.
@@ -32,12 +36,12 @@ class Extract:
 
     Attributes
     ----------
-    continents: dict
-        dictionary of continent IDs (keys) and continent names (values)
     FLOAT_FILL: float
         value to use when missing or invalid data is encountered for float
     node_data: dict
         dictionary with continent keys and dataframe value of SWOT node data
+    NT: int
+        number of time steps
     reach_data: dict
         dictionary with continent keys and dataframe value of SWOT reach data
 
@@ -54,39 +58,38 @@ class Extract:
     FLOAT_FILL = -999999999999
 
     def __init__(self):
-        self.continents = { "af": "Africa", "eu": "Europe and Middle East",
-            "si": "Siberia", "as": "Central and Southeast Asia",
-            "au": "Australia and Oceania", "sa": "South America",
-            "na": "North America and Caribbean", "ar": "North American Arctic",
-            "gr": "Greenland" }
-        self.reach_data = { "af": None, "eu": None, "si": None, "as": None,
-            "au": None, "sa": None, "na": None, "ar": None, "gr": None }
-        self.node_data = { "af": None, "eu": None, "si": None, "as": None,
-            "au": None, "sa": None, "na": None, "ar": None, "gr": None }
+        self.reach_data = { "af": {}, "eu": {}, "si": {}, "as": 
+            {}, "au": {}, "sa": {}, "na": {}, "ar": {}, "gr": {} }
+        self.node_data = { "af": {}, "eu": {}, "si": {}, "as": 
+            {}, "au": {}, "sa": {}, "na": {}, "ar": {}, "gr": {} }
 
-    def append_node(self, key):
+    def append_node(self, key, nt):
         """Appends reach level data identified by key to the node level.
         
         Parameters
         ----------
         key: str
             Name of reach and node dictionary key to append data to
+        nt: int
+            Number of time steps (observations)
         """
 
-        reach_ids = self.reach_data["na"]["reach_id"]
-        self.node_data["na"][key] = np.zeros((self.node_data["na"]["nt"], 
-            self.node_data["na"]["nx"]), dtype=float)
-        for reach_id in reach_ids:
-            # indexes
-            reach_i = np.where(self.reach_data["na"]["reach_id"] == reach_id)
-            node_i = np.where(self.node_data["na"]["reach_id"] == reach_id)
+        # Reach data
+        r_df = self.reach_data["na"][key]
+        r_ids = list(r_df.index)
 
-            # append data
-            r_data = self.reach_data["na"][key][:, reach_i].flatten('C')                
-            r_data = r_data.reshape((np.size(r_data), 1))                
-            n_data = np.repeat(r_data, repeats=np.size(node_i), axis=1)
-            n_data = n_data.reshape((np.size(r_data), 1, np.size(node_i)))
-            self.node_data["na"][key][:, node_i] = n_data
+        # Node data initialization
+        n_df = self.node_data["na"][key]
+        nan = np.full((self.node_data["na"][key].shape[0], nt), fill_value=np.nan)
+        nan_df = pd.DataFrame(nan, index=self.node_data["na"][key].index, columns=range(nt))
+        n_df = pd.concat([n_df,nan_df], axis=1)
+
+        # Append reach to node
+        for r_id in r_ids:
+            r_data = r_df.loc[r_id]        
+            n_df.loc[n_df["reach_id"] == r_id, 0:] = r_data.values
+
+        self.node_data["na"][key] = n_df
 
     def extract_data(self, swot_fs):
         """Extracts data from swot_fs S3 bucket files and stores in data dict.
@@ -113,153 +116,201 @@ class Extract:
             list of directories that contain pass data
         """
 
-        # Data
+        # Reach and node identifier data
         with open(Path(__file__).parent / "data" / "sac.json") as f:
             sac_data = json.load(f)
         
-        # Extract and concatenate data
+        # Extract and build reach and node dataframes
         time = 0
-        reach_dict = {}
-        node_dict = {}
+        reach_dict = create_reach_dict(sac_data["sac_reaches"])
+        node_dict = create_node_dict(sac_data["sac_nodes"])
         for d in dirs:
             reach_path = Path(d) / "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-            extract_reach_local(reach_path, time, reach_dict, sac_data["sac_reaches"])
+            extract_reach_local(reach_path, reach_dict, time)
             node_path = Path(d) / "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
-            extract_node_local(node_path, time, node_dict, sac_data["sac_nodes"])
+            extract_node_local(node_path, node_dict, time)
             time += 1
-
         self.reach_data["na"] = reach_dict
         self.node_data["na"] = node_dict
-        
-        # Track dimensions
+
+        # Track time
         self.reach_data["na"]["nt"] = time
         self.node_data["na"]["nt"] = time
-        self.node_data["na"]["nx"] = np.size(self.node_data["na"]["width"], axis=1)
 
-        # Append d_x_area and slope2 to the node level
-        self.append_node("d_x_area")
-        self.append_node("slope2")
+        # Append reach d_x_area and slope2 to the node level
+        self.append_node("d_x_area", time)
+        self.append_node("slope2", time)
 
 def calculate_d_x_a(wse, width):
     """Calculate and return the change in area.
     
     Parameters
     ----------
-    wse: np.ndarray
-        Numpy array of wse data
-    width: np.ndaray
-        Numpy array of width data
+    wse: pandas.core.series.Series
+        Series of water surface elevation data
+    width: pandas.core.series.Series
+        Series of width data
     """
-    
-    wse[np.isclose(wse, -1.00000000e+12)] = np.nan
-    width[np.isclose(width, -1.00000000e+12)] = np.nan
-    d_h = np.subtract(wse, np.nanmedian(wse))
-    return np.multiply(width, d_h)
 
-def extract_node_local(node_path, time, node_dict, sac_node):
-    """Extracts node data from file at node_path and stores in node_dict.
+    dH = wse.subtract(wse.median(skipna=True))
+    return width.multiply(dH)
+
+def create_node_dict(node_ids):
+        """Initialize an empty node dict of dataframe values and reach/node ids.
+        
+        Parameters
+        ----------
+        node_ids: dict
+            dictionary with node id keys and reach id values
+        """
+
+        df = pd.DataFrame(data=node_ids.keys(), columns=["node_id"]).set_index("node_id")
+        df.insert(loc=0, column="reach_id", value=node_ids.values())
+        return {
+            "slope2" : df.copy(deep=True),
+            "width" : df.copy(deep=True),
+            "wse" : df.copy(deep=True),
+            "d_x_area": df.copy(deep=True),
+            "node_q" : df.copy(deep=True),
+            "dark_frac" : df.copy(deep=True),
+            "ice_clim_f" : df.copy(deep=True),
+            "ice_dyn_f" : df.copy(deep=True),
+            "partial_f" : df.copy(deep=True),
+            "n_good_pix" : df.copy(deep=True),
+            "xovr_cal_q" : df.copy(deep=True)
+        }
+
+def create_reach_dict(reach_ids):
+    """Initialize an empty reach dict of dataframe values and reach ids.
+    
+    Parameters
+    ----------
+    reach_ids: list
+        list of reach identifiers
+    """
+
+    df = pd.DataFrame(data=reach_ids, columns=["reach_id"]).set_index("reach_id")
+    return {
+        "slope2" : df.copy(deep=True),
+        "width" : df.copy(deep=True),
+        "wse" : df.copy(deep=True),
+        "d_x_area": df.copy(deep=True),
+        "reach_q" : df.copy(deep=True),
+        "dark_frac" : df.copy(deep=True),
+        "ice_clim_f" : df.copy(deep=True),
+        "ice_dyn_f" : df.copy(deep=True),
+        "partial_f" : df.copy(deep=True),
+        "n_good_nod" : df.copy(deep=True),
+        "obs_frac_n" : df.copy(deep=True),
+        "xovr_cal_q" : df.copy(deep=True)
+    }
+
+def extract_node_local(node_path, node_dict, time):
+    """Extract node level data from shapefile found at node_path.
     
     Parameters
     ----------
     node_path: Path
         Path to node shapefile
-    time: int
-        Current time step
     node_dict: dict
-        Dictionary of node data
-    sac_node: dict
-        Dictionary of reach identifiers organized by node identifier
+        Dictionary of node data   
+    time: int
+        Current time step 
     """
 
-    sf = shp.Reader(str(node_path))
-    fields = [x[0] for x in sf.fields][1:]
-    records = sf.records()
-    df = pd.DataFrame(columns=fields, data=records)
+    df = gpd.read_file(str(node_path))
 
-    # Add node ids that are not present in the data with missing values
-    diff = np.setdiff1d(list(sac_node.keys()), df["node_id"].to_numpy())
-    no_data = [np.NaN] * (df.shape[1] - 2)
-    for node in diff:
-        row = [sac_node[node], node]
-        row.extend(no_data)
-        df = df.append(pd.Series(row, index=df.columns), ignore_index=True)
+    width = df[["node_id", "width"]].rename(columns={"width": time}).set_index("node_id")
+    width[time].mask(np.isclose(width[time].values, -1.00000000e+12), inplace=True)
+    node_dict["width"] = node_dict["width"].join(width)
 
-    if time == 0:
-        node_dict["reach_id"] = df["reach_id"].astype(int).to_numpy()
-        node_dict["node_id"] = df["node_id"].astype(int).to_numpy()
-        node_dict["width"] = df["width"].to_numpy()
-        node_dict["wse"] = df["wse"].to_numpy()
-        node_dict["node_q"] = df["node_q"].to_numpy()
-        node_dict["dark_frac"] = df["dark_frac"].to_numpy()
-        node_dict["ice_clim_f"] = df["ice_clim_f"].to_numpy()
-        node_dict["ice_dyn_f"] = df["ice_dyn_f"].to_numpy()
-        node_dict["partial_f"] = df["partial_f"].to_numpy()
-        node_dict["n_good_pix"] = df["n_good_pix"].to_numpy()
-        node_dict["xovr_cal_q"] = df["xovr_cal_q"].to_numpy()
-    else:
-        node_dict["width"] = np.vstack((node_dict["width"], df["width"].to_numpy()))
-        node_dict["wse"] = np.vstack((node_dict["wse"], df["wse"].to_numpy()))
-        node_dict["node_q"] = np.vstack((node_dict["node_q"], df["node_q"].to_numpy()))
-        node_dict["dark_frac"] = np.vstack((node_dict["dark_frac"], df["dark_frac"].to_numpy()))
-        node_dict["ice_clim_f"] = np.vstack((node_dict["ice_clim_f"], df["ice_clim_f"].to_numpy()))
-        node_dict["ice_dyn_f"] = np.vstack((node_dict["ice_dyn_f"], df["ice_dyn_f"].to_numpy()))
-        node_dict["partial_f"] = np.vstack((node_dict["partial_f"], df["partial_f"].to_numpy()))
-        node_dict["n_good_pix"] = np.vstack((node_dict["n_good_pix"], df["n_good_pix"].to_numpy()))
-        node_dict["xovr_cal_q"] = np.vstack((node_dict["xovr_cal_q"], df["xovr_cal_q"].to_numpy()))
+    wse = df[["node_id", "wse"]].rename(columns={"wse": time}).set_index("node_id")
+    wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
+    node_dict["wse"] = node_dict["wse"].join(wse)
 
-def extract_reach_local(reach_path, time, reach_dict, sac_reach):
-    """Extracts reach data from file at reach_path and stores in reach_dict.
+    node_q = df[["node_id", "node_q"]].rename(columns={"node_q": time}).set_index("node_id")
+    node_dict["node_q"] = node_dict["node_q"].join(node_q)
+
+    dark_frac = df[["node_id", "dark_frac"]].rename(columns={"dark_frac": time}).set_index("node_id")
+    dark_frac[time].mask(np.isclose(dark_frac[time].values, -1.00000000e+12), inplace=True)
+    node_dict["dark_frac"] = node_dict["dark_frac"].join(dark_frac)
+
+    ice_clim_f = df[["node_id", "ice_clim_f"]].rename(columns={"ice_clim_f": time}).set_index("node_id")
+    ice_clim_f[time].replace(-999, np.nan, inplace=True)
+    node_dict["ice_clim_f"] = node_dict["ice_clim_f"].join(ice_clim_f)
+
+    ice_dyn_f = df[["node_id", "ice_dyn_f"]].rename(columns={"ice_dyn_f": time}).set_index("node_id")
+    ice_dyn_f[time].replace(-999, np.nan, inplace=True)
+    node_dict["ice_dyn_f"] = node_dict["ice_dyn_f"].join(ice_dyn_f)
+
+    partial_f = df[["node_id", "partial_f"]].rename(columns={"partial_f": time}).set_index("node_id")
+    partial_f[time].replace(-999, np.nan, inplace=True)
+    node_dict["partial_f"] = node_dict["partial_f"].join(partial_f)
+
+    n_good_pix = df[["node_id", "n_good_pix"]].rename(columns={"n_good_pix": time}).set_index("node_id")
+    n_good_pix[time].replace(-999, np.nan, inplace=True)
+    node_dict["n_good_pix"] = node_dict["n_good_pix"].join(n_good_pix)
+
+    xovr_cal_q = df[["node_id", "xovr_cal_q"]].rename(columns={"xovr_cal_q": time}).set_index("node_id")
+    xovr_cal_q[time].replace(-999, np.nan, inplace=True)
+    node_dict["xovr_cal_q"] = node_dict["xovr_cal_q"].join(xovr_cal_q)
+
+def extract_reach_local(reach_path, reach_dict, time):
+    """Extract reach level data from shapefile found at reach_path.
     
     Parameters
     ----------
     reach_path: Path
         Path to reach shapefile
-    time: int
-        Current time step
     reach_dict: dict
-        Dictionary of reach data
-    sac_reach: list
-        List of reach identifiers
+        Dictionary of reach data   
+    time: int
+        Current time step 
     """
+    
+    df = gpd.read_file(str(reach_path))
+    
+    slope = df[["reach_id", "slope2"]].rename(columns={"slope2": time}).set_index("reach_id")
+    slope[time].mask(np.isclose(slope[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["slope2"] = reach_dict["slope2"].join(slope)
 
-    sf = shp.Reader(str(reach_path))
-    fields = [x[0] for x in sf.fields][1:]
-    records = sf.records()
-    df = pd.DataFrame(columns=fields, data=records)
-    df.replace(to_replace=-9999, value=Extract.FLOAT_FILL, inplace=True)
+    width = df[["reach_id", "width"]].rename(columns={"width": time}).set_index("reach_id")
+    width[time].mask(np.isclose(width[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["width"] = reach_dict["width"].join(width)
 
-    # Add reach ids that are not present in the data with missing values
-    diff = np.setdiff1d(sac_reach, df["reach_id"].to_numpy())
-    no_data = [np.NaN] * (df.shape[1] - 1)
-    for reach in diff:
-        row = [reach]
-        row.extend(no_data)
-        df = df.append(pd.Series(row, index=df.columns), ignore_index=True)
+    wse = df[["reach_id", "wse"]].rename(columns={"wse": time}).set_index("reach_id")
+    wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["wse"] = reach_dict["wse"].join(wse)
 
-    if time == 0:
-        reach_dict["reach_id"] = df["reach_id"].astype(int).to_numpy()
-        reach_dict["slope2"] = df["slope2"].to_numpy()
-        reach_dict["width"] = df["width"].to_numpy()
-        reach_dict["wse"] = df["wse"].to_numpy()
-        reach_dict["d_x_area"] = calculate_d_x_a(df["wse"].to_numpy(), df["width"].to_numpy())
-        reach_dict["reach_q"] = df["reach_q"].to_numpy()
-        reach_dict["dark_frac"] = df["dark_frac"].to_numpy()
-        reach_dict["ice_clim_f"] = df["ice_clim_f"].to_numpy()
-        reach_dict["ice_dyn_f"] = df["ice_dyn_f"].to_numpy()
-        reach_dict["partial_f"] = df["partial_f"].to_numpy()
-        reach_dict["n_good_nod"] = df["n_good_nod"].to_numpy()
-        reach_dict["obs_frac_n"] = df["obs_frac_n"].to_numpy()
-        reach_dict["xovr_cal_q"] = df["xovr_cal_q"].to_numpy()
-    else:
-        reach_dict["slope2"] = np.vstack((reach_dict["slope2"], df["slope2"].to_numpy()))
-        reach_dict["width"] = np.vstack((reach_dict["width"], df["width"].to_numpy()))
-        reach_dict["wse"] = np.vstack((reach_dict["wse"], df["wse"].to_numpy()))
-        reach_dict["d_x_area"] = np.vstack((reach_dict["d_x_area"], calculate_d_x_a(df["wse"].to_numpy(), df["width"].to_numpy())))
-        reach_dict["reach_q"] = np.vstack((reach_dict["reach_q"], df["reach_q"].to_numpy()))
-        reach_dict["dark_frac"] = np.vstack((reach_dict["dark_frac"], df["dark_frac"].to_numpy()))
-        reach_dict["ice_clim_f"] = np.vstack((reach_dict["ice_clim_f"], df["ice_clim_f"].to_numpy()))
-        reach_dict["ice_dyn_f"] = np.vstack((reach_dict["ice_dyn_f"], df["ice_dyn_f"].to_numpy()))
-        reach_dict["partial_f"] = np.vstack((reach_dict["partial_f"], df["partial_f"].to_numpy()))
-        reach_dict["n_good_nod"] = np.vstack((reach_dict["n_good_nod"], df["n_good_nod"].to_numpy()))
-        reach_dict["obs_frac_n"] = np.vstack((reach_dict["obs_frac_n"], df["obs_frac_n"].to_numpy()))
-        reach_dict["xovr_cal_q"] = np.vstack((reach_dict["xovr_cal_q"], df["xovr_cal_q"].to_numpy()))
+    d_x_area = calculate_d_x_a(wse[time], width[time]).rename(time)
+    reach_dict["d_x_area"] = reach_dict["d_x_area"].join(d_x_area)
+
+    reach_q = df[["reach_id", "reach_q"]].rename(columns={"reach_q": time}).set_index("reach_id")
+    reach_dict["reach_q"] = reach_dict["reach_q"].join(reach_q)
+
+    dark_frac = df[["reach_id", "dark_frac"]].rename(columns={"dark_frac": time}).set_index("reach_id")
+    dark_frac[time].mask(np.isclose(dark_frac[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["dark_frac"] = reach_dict["dark_frac"].join(dark_frac)
+
+    ice_clim_f = df[["reach_id", "ice_clim_f"]].rename(columns={"ice_clim_f": time}).set_index("reach_id")
+    ice_clim_f[time].replace(-999, np.nan, inplace=True)
+    reach_dict["ice_clim_f"] = reach_dict["ice_clim_f"].join(ice_clim_f)
+
+    ice_dyn_f = df[["reach_id", "ice_dyn_f"]].rename(columns={"ice_dyn_f": time}).set_index("reach_id")
+    ice_dyn_f[time].replace(-999, np.nan, inplace=True)
+    reach_dict["ice_dyn_f"] = reach_dict["ice_dyn_f"].join(ice_dyn_f)
+
+    partial_f = df[["reach_id", "partial_f"]].rename(columns={"partial_f": time}).set_index("reach_id")
+    reach_dict["partial_f"] = reach_dict["partial_f"].join(partial_f)
+
+    n_good_nod = df[["reach_id", "n_good_nod"]].rename(columns={"n_good_nod": time}).set_index("reach_id")
+    n_good_nod[time].replace(-999, np.nan, inplace=True)
+    reach_dict["n_good_nod"] = reach_dict["n_good_nod"].join(n_good_nod)
+
+    obs_frac_n = df[["reach_id", "obs_frac_n"]].rename(columns={"obs_frac_n": time}).set_index("reach_id")
+    obs_frac_n[time].mask(np.isclose(obs_frac_n[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["obs_frac_n"] = reach_dict["obs_frac_n"].join(obs_frac_n)
+
+    xovr_cal_q = df[["reach_id", "xovr_cal_q"]].rename(columns={"xovr_cal_q": time}).set_index("reach_id")
+    xovr_cal_q[time].replace(-999, np.nan, inplace=True)
+    reach_dict["xovr_cal_q"] = reach_dict["xovr_cal_q"].join(xovr_cal_q)
