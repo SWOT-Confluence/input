@@ -21,6 +21,7 @@ extract_reach_local(reach_path, time, reach_dict, sac_reach)
 """
 
 # Standard imports
+from datetime import date
 import json
 from pathlib import Path
 
@@ -56,6 +57,17 @@ class Extract:
     """
 
     FLOAT_FILL = -999999999999
+
+    TIME_DICT = { "109": date(2009,1,9), "110": date(2009,1,10),
+            "119": date(2009,1,19), "130": date(2009,1,30), "131": date(2009,1,31),
+            "209": date(2009,2,9), "220": date(2009,2,20), "221": date(2009,2,21),
+            "302": date(2009,3,2), "313": date(2009,3,13), "314": date(2009,3,14),
+            "323": date(2009,3,23), "403": date(2009,4,3), "404": date(2009,4,4),
+            "413": date(2009,4,13), "424": date(2009,4,24), "425": date(2009,4,25),
+            "504": date(2009,5,4), "515": date(2009,5,15), "516": date(2009,5,16),
+            "525": date(2009,5,25), "605": date(2009,6,5), "606": date(2009,6,6),
+            "615": date(2009,6,15), "626": date(2009,6,26)           
+        }
 
     def __init__(self):
         self.reach_data = { "af": {}, "eu": {}, "si": {}, "as": 
@@ -133,10 +145,6 @@ class Extract:
         self.reach_data["na"] = reach_dict
         self.node_data["na"] = node_dict
 
-        # Track time
-        self.reach_data["na"]["nt"] = time
-        self.node_data["na"]["nt"] = time
-
         # Append reach d_x_area and slope2 to the node level
         self.append_node("d_x_area", time)
         self.append_node("slope2", time)
@@ -202,7 +210,8 @@ def create_reach_dict(reach_ids):
         "partial_f" : df.copy(deep=True),
         "n_good_nod" : df.copy(deep=True),
         "obs_frac_n" : df.copy(deep=True),
-        "xovr_cal_q" : df.copy(deep=True)
+        "xovr_cal_q" : df.copy(deep=True),
+        "time": []
     }
 
 def extract_node_local(node_path, node_dict, time):
@@ -314,3 +323,6 @@ def extract_reach_local(reach_path, reach_dict, time):
     xovr_cal_q = df[["reach_id", "xovr_cal_q"]].rename(columns={"xovr_cal_q": time}).set_index("reach_id")
     xovr_cal_q[time].replace(-999, np.nan, inplace=True)
     reach_dict["xovr_cal_q"] = reach_dict["xovr_cal_q"].join(xovr_cal_q)
+
+    time_step = int(Extract.TIME_DICT[reach_path.parent.parent.parent.stem].strftime("%Y%m%d"))
+    reach_dict["time"].append(time_step)

@@ -69,28 +69,28 @@ class Write:
         
         Parameters
         ----------
-        nx: int
-            number of nodes
-        nt: int
-            number of time steps
+        nx: range
+            range of number of nodes
+        nt: list
+            list of time steps
         dataset: netCDF4.Dataset
             dataset to write node level data to
         """
 
          # Create dimension(s)
-        dataset.createDimension("nt", nt)
-        dataset.createDimension("nx", nx)
+        dataset.createDimension("nt", len(nt))
+        dataset.createDimension("nx", len(nx))
 
         # Create coordinate variable(s)
         nt_v = dataset.createVariable("nt", "i4", ("nt",))
         nt_v.units = "day"
         nt_v.long_name = "time steps"
-        nt_v[:] = range(0, nt)
+        nt_v[:] = nt
 
         nx_v = dataset.createVariable("nx", "i4", ("nx",))
         nx_v.units = "node"
         nx_v.long_name = "number of nodes"
-        nx_v[:] = range(1, nx + 1)
+        nx_v[:] = nx
 
     def __define_global_attrs(self, dataset, reach_id, cont):
         """Set global attributes for NetCDF dataset file.
@@ -136,8 +136,8 @@ class Write:
                     node_group = dataset.createGroup("node")
 
                     # Dimension and data
-                    nt = self.reach_data[key]["nt"]
-                    nx = len(self.node_data[key]["width"].loc[self.node_data[key]["width"]["reach_id"] == reach_id].index)
+                    nt = self.reach_data[key]["time"]
+                    nx = range(1, len(self.node_data[key]["width"].loc[self.node_data[key]["width"]["reach_id"] == reach_id].index) + 1)
                     self.__create_dimensions(nx, nt, dataset)
 
                     # Reach and node data
