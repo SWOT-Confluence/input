@@ -235,7 +235,7 @@ class Write:
         ice_clim_f.standard_name = "status_flag"
         ice_clim_f.source = "Yang et al. (2020)"
         ice_clim_f.flag_meanings = "no_ice_cover uncertain_ice_cover full_ice_cover"
-        ice_clim_f.flagalues = "0 1 2"
+        ice_clim_f.flag_values = "0 1 2"
         ice_clim_f.valid_min = 0
         ice_clim_f.valid_max = 2
         ice_clim_f.comment = "Climatological ice cover flag indicating " \
@@ -253,7 +253,7 @@ class Write:
         ice_dyn_f.standard_name = "status_flag"
         ice_dyn_f.source = "Yang et al. (2020)"
         ice_dyn_f.flag_meanings = "no_ice_cover uncertain_ice_cover full_ice_cover"
-        ice_dyn_f.flagalues = "0 1 2"
+        ice_dyn_f.flag_values = "0 1 2"
         ice_dyn_f.valid_min = 0
         ice_dyn_f.valid_max = 2
         ice_dyn_f.comment = "Dynamic ice cover flag indicating whether " \
@@ -268,7 +268,7 @@ class Write:
         partial_f.long_name = "partial reach coverage flag"
         partial_f.standard_name = "status_flag"
         partial_f.flag_meanings = "covered not_covered"
-        partial_f.flagalues = "0 1"
+        partial_f.flag_values = "0 1"
         partial_f.valid_min = 0
         partial_f.valid_max = 2
         partial_f.comment = "Flag that indicates only partial node " \
@@ -292,7 +292,7 @@ class Write:
         xovr_cal_q.long_name = "quality of the cross-over calibration"
         xovr_cal_q.flag_masks = "TBD"
         xovr_cal_q.flag_meanings = "TBD"
-        xovr_cal_q.flagalues = "T B D"
+        xovr_cal_q.flag_values = "T B D"
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
@@ -355,7 +355,7 @@ class Write:
         reach_q.standard_name = "summary quality indicator for the reach"
         reach_q.flag_masks = "TBD"
         reach_q.flag_meanings = "good bad"
-        reach_q.flagalues = "0 1"
+        reach_q.flag_values = "0 1"
         reach_q.valid_min = 0
         reach_q.valid_max = 1
         reach_q.comment = "Summary quality indicator for the reach " \
@@ -378,7 +378,7 @@ class Write:
         ice_clim_f.standard_name = "status_flag"
         ice_clim_f.source = "Yang et al. (2020)"
         ice_clim_f.flag_meanings = "no_ice_cover uncertain_ice_cover full_ice_cover"
-        ice_clim_f.flagalues = "0 1 2"
+        ice_clim_f.flag_values = "0 1 2"
         ice_clim_f.valid_min = 0
         ice_clim_f.valid_max = 2
         ice_clim_f.comment = "Climatological ice cover flag indicating " \
@@ -396,7 +396,7 @@ class Write:
         ice_dyn_f.standard_name = "status_flag"
         ice_dyn_f.source = "Yang et al. (2020)"
         ice_dyn_f.flag_meanings = "no_ice_cover uncertain_ice_cover full_ice_cover"
-        ice_dyn_f.flagalues = "0 1 2"
+        ice_dyn_f.flag_values = "0 1 2"
         ice_dyn_f.valid_min = 0
         ice_dyn_f.valid_max = 2
         ice_dyn_f.comment = "Dynamic ice cover flag indicating whether " \
@@ -411,9 +411,9 @@ class Write:
         partial_f.long_name = "partial reach coverage flag"
         partial_f.standard_name = "status_flag"
         partial_f.flag_meanings = "covered not_covered"
-        partial_f.flagalues = "0 1"
+        partial_f.flag_values = "0 1"
         partial_f.valid_min = 0
-        partial_f.valid_max = 2
+        partial_f.valid_max = 1
         partial_f.comment = "Flag that indicates only partial reach " \
             + "coverage. The flag is 0 if at least half the nodes of the " \
             + "reach have valid WSE measurements; the flag is 1 otherwise " \
@@ -448,7 +448,7 @@ class Write:
         xovr_cal_q.long_name = "quality of the cross-over calibration"
         xovr_cal_q.flag_masks = "TBD"
         xovr_cal_q.flag_meanings = "TBD"
-        xovr_cal_q.flagalues = "T B D"
+        xovr_cal_q.flag_values = "T B D"
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
