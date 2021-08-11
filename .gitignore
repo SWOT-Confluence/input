@@ -1,7 +1,6 @@
 __pycache__
 .vscode
 swot_netcdf
-src/data
 src/Write_local.py
 swot_netcdf.zip
 .idea
