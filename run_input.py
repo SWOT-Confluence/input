@@ -5,7 +5,6 @@ from pathlib import Path
 
 # Local imports
 from src.Extract import Extract
-from src.Kluge import Kluge
 from src.Login import Login
 from src.Upload import Upload
 from src.Write import Write   
@@ -32,12 +31,6 @@ def main():
     # upload = Upload(login.sos_fs, login.swot_fs)
     upload = Upload(None, None)
     upload.upload_data_local(OUTPUT, write.temp_dir)
-
-    # Kluge data
-    kluge_out = Path("")
-    kluge_invalid = Path("")
-    kluge = Kluge(OUTPUT, kluge_out, kluge_invalid)
-    kluge.kluge_data()
 
 if __name__ == "__main__":
     from datetime import datetime
