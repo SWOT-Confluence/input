@@ -24,20 +24,22 @@ class Write:
         value to use when missing or invalid data is encountered for integers
     node_data: dict
         dictionary with continent keys and dataframe value of SWOT node data
+    output_dir: Path
+        path to output directory on EFS 'input' mount
     reach_data: dict
         dictionary with continent keys and dataframe value of SWOT reach data
-    temp_dir: tempfile.TemporaryDirectory
-        temporary directory to write NetCDF files to prior to upload
 
     Methods
     -------
+    copy_sos_data(confluence_fs)
+        copy S3 SoS data to output directory
     __create_dimensions( nx, nt, dataset)
-        Create dimensions and coordinate variables for dataset.
+        create dimensions and coordinate variables for dataset
     __define_global_attrs(dataset, level, cont)
         Set global attributes for NetCDF dataset file
     write_data()
         writes SWOT data dictionaries to NetCDF files organized by continent
-    __write_data(nc_file)
+    __write_node_data(nc_file)
         writes node level data to NetCDF file in node group
     __write_reach_data(nc_file)
         writes reach level data to NetCDF file in reach group
@@ -46,12 +48,14 @@ class Write:
     FLOAT_FILL = -999999999999
     INT_FILL = -999
 
-    def __init__(self, node_data, reach_data):
+    def __init__(self, node_data, reach_data, output_dir):
         """
         Parameters
         ----------
         node_data: dict
             dictionary with continent keys and dataframe value of SWOT node data
+        output_dir: Path
+            path to output directory on EFS 'input' mount
         reach_data: dict
             dictionary with continent keys and dataframe value of SWOT reach data
         """
@@ -60,9 +64,24 @@ class Write:
             "au": "Australia and Oceania", "sa": "South America",
             "na": "North America and Caribbean", "ar": "North American Arctic",
             "gr": "Greenland" }
-        self.temp_dir = TemporaryDirectory()
         self.node_data = node_data
+        self.output_dir = output_dir
         self.reach_data = reach_data
+
+    def copy_sos_data(self, confluence_fs):
+        """Copy S3 SoS data to output directory.
+        
+        Parameters
+        ----------
+        confluence_fs: S3FileSystem
+            references Confluence S3 buckets
+        """
+        
+        dirs = confluence_fs.ls("confluence-sos")
+        curr_dir = max(dirs)
+        files = confluence_fs.glob(f"{curr_dir}/*.nc")
+        for file in files:
+            confluence_fs.download(file, f"{str(self.output_dir / 'sos')}/{file.split('/')[-1]}")
 
     def __create_dimensions(self, nx, nt, dataset):
         """Create dimensions and coordinate variables for dataset.
@@ -129,7 +148,7 @@ class Write:
                 reach_ids = list(self.reach_data[key]["width"].index)
                 for reach_id in reach_ids:
                     # NetCDF4 dataset
-                    reach_file = Path(self.temp_dir.name) / f"{reach_id}_SWOT.nc"
+                    reach_file = self.output_dir / "swot" / f"{reach_id}_SWOT.nc"
                     dataset = Dataset(reach_file, 'w', format="NETCDF4")
                     self.__define_global_attrs(dataset, reach_id, key)
                     reach_group = dataset.createGroup("reach")
