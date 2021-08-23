@@ -103,44 +103,36 @@ class Extract:
 
         self.node_data["na"][key] = n_df
 
-    def extract_data(self, swot_fs):
+    def extract_data(self, confluence_fs):
         """Extracts data from swot_fs S3 bucket files and stores in data dict.
 
         Parameters
         ----------
-        swot_fs: S3FileSystem
-            References PO.DAAC SWOT S3 bucket
+        confluence_fs: S3FileSystem
+            references Confluence S3 buckets
         
         ## TODO: 
-        - Implement
-        """
-
-        raise NotImplementedError
-
-    def extract_data_local(self, dirs):
-        """Extracts Sacramento data from directory parameter and stores in ??
-
-        NOTE: This is for use with Sacramento data only.
-        
-        Parameters
-        ----------
-        pass_dirs: list
-            list of directories that contain pass data
+        - Implement PO.DAAC data extraction and storage
         """
 
         # Reach and node identifier data
         with open(Path(__file__).parent / "data" / "sac.json") as f:
             sac_data = json.load(f)
-        
+
+        # S3 SWOT files
+        pass_dirs = confluence_fs.ls("confluence-swot")
+        date_dirs = [ j.split('/')[2] for i in pass_dirs for j in confluence_fs.ls(i) ]
+        date_dirs = sorted(date_dirs)
+               
         # Extract and build reach and node dataframes
         time = 0
         reach_dict = create_reach_dict(sac_data["sac_reaches"])
         node_dict = create_node_dict(sac_data["sac_nodes"])
-        for d in dirs:
-            reach_path = Path(d) / "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-            extract_reach_local(reach_path, reach_dict, time)
-            node_path = Path(d) / "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
-            extract_node_local(node_path, node_dict, time)
+        for d in date_dirs:
+            reach_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/reaches.shp")[0]
+            extract_reach_local(reach_file, reach_dict, time)
+            node_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/nodes.shp")[0]
+            extract_node_local(node_file, node_dict, time)
             time += 1
         self.reach_data["na"] = reach_dict
         self.node_data["na"] = node_dict
@@ -214,12 +206,12 @@ def create_reach_dict(reach_ids):
         "time": []
     }
 
-def extract_node_local(node_path, node_dict, time):
+def extract_node_local(node_file, node_dict, time):
     """Extract node level data from shapefile found at node_path.
     
     Parameters
     ----------
-    node_path: Path
+    node_file: str
         Path to node shapefile
     node_dict: dict
         Dictionary of node data   
@@ -227,7 +219,7 @@ def extract_node_local(node_path, node_dict, time):
         Current time step 
     """
 
-    df = gpd.read_file(str(node_path))
+    df = gpd.read_file(f"s3://{node_file}")
 
     width = df[["node_id", "width"]].rename(columns={"width": time}).set_index("node_id")
     width[time].mask(np.isclose(width[time].values, -1.00000000e+12), inplace=True)
@@ -264,12 +256,12 @@ def extract_node_local(node_path, node_dict, time):
     xovr_cal_q[time].replace(-999, np.nan, inplace=True)
     node_dict["xovr_cal_q"] = node_dict["xovr_cal_q"].join(xovr_cal_q)
 
-def extract_reach_local(reach_path, reach_dict, time):
+def extract_reach_local(reach_file, reach_dict, time):
     """Extract reach level data from shapefile found at reach_path.
     
     Parameters
     ----------
-    reach_path: Path
+    reach_file: str
         Path to reach shapefile
     reach_dict: dict
         Dictionary of reach data   
@@ -277,7 +269,7 @@ def extract_reach_local(reach_path, reach_dict, time):
         Current time step 
     """
     
-    df = gpd.read_file(str(reach_path))
+    df = gpd.read_file(f"s3://{reach_file}")
     
     slope = df[["reach_id", "slope2"]].rename(columns={"slope2": time}).set_index("reach_id")
     slope[time].mask(np.isclose(slope[time].values, -1.00000000e+12), inplace=True)
@@ -324,5 +316,5 @@ def extract_reach_local(reach_path, reach_dict, time):
     xovr_cal_q[time].replace(-999, np.nan, inplace=True)
     reach_dict["xovr_cal_q"] = reach_dict["xovr_cal_q"].join(xovr_cal_q)
 
-    time_step = int(Extract.TIME_DICT[reach_path.parent.parent.parent.stem].strftime("%Y%m%d"))
+    time_step = int(Extract.TIME_DICT[reach_file.split('/')[2]].strftime("%Y%m%d"))
     reach_dict["time"].append(time_step)
