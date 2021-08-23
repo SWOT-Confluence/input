@@ -9,7 +9,7 @@ Input takes the PO.DAAC shapefile data and extracts required attributes and writ
 Input also transfer the current version of the SoS to the appropriate EFS mount.
 
 TO DO:
-- PO.DAAC S3 transfer of data functionality is not available for SWOT and needs to be tested
+- PO.DAAC S3 transfer of data functionality is not available for SWOT and needs to be tested; implement in Login and Extract classes
 - Handling of time for nodes -> will nodes have different time stamps than reaches?
 
 # installation

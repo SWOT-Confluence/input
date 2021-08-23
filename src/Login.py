@@ -7,27 +7,27 @@ from urllib import request
 import s3fs
 
 # Application imports
-from src.input_conf import token_data, sos_creds
+from src.input_conf import token_data, confluence_creds
 
 class Login:
     """
     A class that represents login operations.
+
+    TODO: Implement PO.DAAC-related operations.
     
     A user can log into the PO.DAAC Earthdata system and/or PO.DAAC S3 and SoS
     S3 buckets.
 
     Attributes
     ----------
-    sos_fs: S3FileSystem
-        references SWORD of Science S3 bucket
+    confluence_fs: S3FileSystem
+        references Confluence S3 buckets
     swot_fs: S3FileSystem
         references PO.DAAC SWOT S3 bucket
-    SOS_S3: str
-        string to SOS S3 location
-    SWOT_S3: str
-        string URL to access SWOT S3 credentials
-    URS: str   
-        string URL to Earthdata login
+    # SWOT_S3: str
+    #     string URL to access SWOT S3 credentials
+    # URS: str   
+    #     string URL to Earthdata login
     Methods
     -------
     login()
@@ -35,33 +35,34 @@ class Login:
     login_earthdata()
         logs into Earthdata service
     """
-
-    SOS_S3 = "swordofscience"
-    SWOT_S3 = "https://archive.podaac.earthdata.nasa.gov/s3credentials"
-    URS = ""
+    
+    # SWOT_S3 = "https://archive.podaac.earthdata.nasa.gov/s3credentials"
+    # URS = ""
 
     def __init__(self):
-        self.sos_fs = None
-        self.swot_fs = None
+        self.confluence_fs = None
 
     def login(self):
         """Logs into Earthdata and accesses SWOT S3 bucket and SOS S3 bucket.
         
         Sets references to sos_fs and swot_fs attributes.
+
+        TODO:
+        - Implement PO.DAAC login operations
         """
 
-        # SWOT data
-        self.login_earthdata()
-        response = requests.get(self.SWOT_S3).json()
-        self.swot_fs = s3fs.S3FileSystem(key=response["accessKeyId"],
-                                         secret=response["secretAccessKey"],
-                                         token=response["sessionToken"],
-                                         client_kwargs={"region_name": "us-west-2"})
+        # SWOT data TODO
+        # self.login_earthdata()
+        # response = requests.get(self.SWOT_S3).json()
+        # self.swot_fs = s3fs.S3FileSystem(key=response["accessKeyId"],
+        #                                  secret=response["secretAccessKey"],
+        #                                  token=response["sessionToken"],
+        #                                  client_kwargs={"region_name": "us-west-2"})
 
-        # SoS data
-        self.sos_fs = s3fs.S3FileSystem(key=sos_creds["key"],
-                                        secret=sos_creds["secret"],
-                                        client_kwargs={"region_name": sos_creds["region"]})
+        # Confluence data (SoS and SWORD)
+        self.confluence_fs = s3fs.S3FileSystem(key=confluence_creds["key"],
+                                        secret=confluence_creds["secret"],
+                                        client_kwargs={"region_name": confluence_creds["region"]})
 
     def login_earthdata(self):
         """Log into Earthdata and set up request library to track cookies."""
