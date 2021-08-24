@@ -6,8 +6,7 @@ from src.Extract import Extract
 from src.Login import Login
 from src.Write import Write   
 
-INPUT = Path("")
-OUTPUT = Path("")
+OUTPUT = Path("/mnt/data")
 
 def main():
     # Login
