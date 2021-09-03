@@ -68,16 +68,19 @@ class Write:
         self.output_dir = output_dir
         self.reach_data = reach_data
 
-    def copy_sos_data(self, confluence_fs):
+    def copy_sos_data(self, confluence_fs, run_type):
         """Copy S3 SoS data to output directory.
         
         Parameters
         ----------
         confluence_fs: S3FileSystem
             references Confluence S3 buckets
+        run_type: str
+            either "constrained" or "unconstrained"
         """
         
-        dirs = confluence_fs.ls("confluence-sos")
+        dirs = confluence_fs.ls(f"confluence-sos/{run_type}")
+        print(dirs)
         curr_dir = max(dirs)
         files = confluence_fs.glob(f"{curr_dir}/*.nc")
         for file in files:
