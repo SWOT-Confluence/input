@@ -155,7 +155,7 @@ class GageAppend:
             else:
                 # Map USGS data that matches SoS reach identifiers
                 self.map_dict[continent]["days"] = np.array(range(1, len(self.usgs_dict["Qwrite"][0]) + 1))
-                self.map_dict[continent]["usgs_reach_id"] = np.array(same_ids, dtype=np.int64)
+                self.map_dict[continent]["usgs_reach_id"] = self.usgs_dict["reachId"].astype(np.int64)[indexes]
                 self.map_dict[continent]["fdq"] = self.usgs_dict["FDQS"][indexes,:]
                 self.map_dict[continent]["max_q"] =self.usgs_dict["Qmax"][indexes]
                 self.map_dict[continent]["monthly_q"] = self.usgs_dict["MONQ"][indexes,:]
