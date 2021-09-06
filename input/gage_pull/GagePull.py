@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 # Local imports
-from src.gage_pull.GageRead import GageRead
+from input.gage_pull.GageRead import GageRead
 
 class GagePull:
     """Class that pulls USGS Gage data and appends it to the SoS.

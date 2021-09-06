@@ -5,7 +5,7 @@ token_data = {
     "ip": ""
 }
 
-sos_creds = {
+confluence_creds = {
     "key" : "",
     "secret" : "",
     "region" : ""

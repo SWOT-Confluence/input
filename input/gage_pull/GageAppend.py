@@ -7,7 +7,6 @@ from pathlib import Path
 # Third-party imports
 from netCDF4 import Dataset, stringtochar
 import numpy as np
-import pandas as pd
 
 class GageAppend:
     """Class that appends USGS gage data to the SoS.

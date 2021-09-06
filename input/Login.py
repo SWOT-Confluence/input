@@ -7,7 +7,7 @@ from urllib import request
 import s3fs
 
 # Application imports
-from src.input_conf import token_data, confluence_creds
+from input.input_conf import token_data, confluence_creds
 
 class Login:
     """

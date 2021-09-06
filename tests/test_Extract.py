@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 # Local imports
-from src.Extract import Extract, calculate_d_x_a, create_reach_dict, create_node_dict, extract_node_local, extract_reach_local
+from input.Extract import Extract, calculate_d_x_a, create_reach_dict, create_node_dict, extract_node_local, extract_reach_local
 
 class TestExtract(unittest.TestCase):
     """Tests methods and functions from Extract module."""

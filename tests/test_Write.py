@@ -10,7 +10,7 @@ from netCDF4 import Dataset
 import numpy as np
 
 # Local imports
-from src.Write import Write
+from input.Write import Write
 
 class TestWrite(unittest.TestCase):
     """Tests methods from Write class."""
