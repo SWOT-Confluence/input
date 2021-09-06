@@ -71,7 +71,7 @@ class GagePull:
             Dictionary of USGS data needed to download a record
         """
 
-        records = await asyncio.gather(*(self.get_record(site) for site in sites.values()))
+        records = await asyncio.gather(*(self.get_record(site) for site in sites))
         return records
 
     def pull(self):
@@ -81,10 +81,12 @@ class GagePull:
         ALLt=pd.date_range(start=self.start_date,end=self.end_date)
         gage_read = GageRead(self.usgs_targets)
         dataUSGS, reachID = gage_read.read()
+        dataUSGS = dataUSGS[:10]
+        reachID = reachID[:10]
         
         # Download records and gather a list of dataframes
         df_list = asyncio.run(self.gather_records(dataUSGS))
-        
+
         # generate empty arrays for nc output
         EMPTY=np.nan
         MONQ=np.full((len(dataUSGS),12),EMPTY)

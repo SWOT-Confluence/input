@@ -1,5 +1,5 @@
 # Third-party imports
-from netCDF4 import Dataset
+from netCDF4 import Dataset, chartostring
 import numpy as np
 import pandas as pd
 
@@ -63,21 +63,11 @@ class GageRead:
         """Read USGS data."""
        
         ncf = Dataset(self.usgs_targets)
-        #
-        dataUSGS=np.ma.getdata(ncf.variables['STAID'][:])
-        dataUSGS=np.char.decode(dataUSGS)
-        #
-        reachID = np.ma.getdata(ncf.variables['reach_id'][:])
-        reachID=np.char.decode(reachID)
-        USt={}
-        Rt={}
-        for i in range(len(reachID)):
-            US=','.join(dataUSGS[i,:])
-            USt[i]=US.replace(',','')
-            #
-            R=','.join( reachID[i,:])
-            Rt[i]=R.replace(',','')
-            
-        dataUSGS = USt
-        reachID = Rt
+        # USGS STAID ID
+        dataUSGS = chartostring(ncf["STAID"][:].filled(np.nan))
+        dataUSGS = [ el.strip('n') for el in dataUSGS ]
+
+        # SWORD Reach ID
+        reachID = chartostring(ncf["reach_id"][:].filled(np.nan))
+
         return dataUSGS, reachID

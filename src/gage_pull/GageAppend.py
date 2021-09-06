@@ -5,7 +5,7 @@ from os import scandir
 from pathlib import Path
 
 # Third-party imports
-from netCDF4 import Dataset
+from netCDF4 import Dataset, stringtochar
 import numpy as np
 import pandas as pd
 
@@ -66,7 +66,7 @@ class GageAppend:
         for continent in self.sos_dict.keys():
 
             if self.map_dict[continent]:
-                sos_file = glob.glob(f"{self.sos_dir}/constrained/{continent}*")[0]
+                sos_file = glob.glob(f"{self.sos_dir}/{continent}*")[0]
                 sos = Dataset(sos_file, 'a')
                 sos.production_date = datetime.now().strftime('%d-%b-%Y %H:%M:%S')
                 usgs = sos["model"].createGroup("usgs")
@@ -117,9 +117,10 @@ class GageAppend:
                 tyr.units = "m^3/s"
                 tyr[:] = np.nan_to_num(self.map_dict[continent]["tyr"], copy=True, nan=self.FLOAT_FILL)
 
-                usgs_id = usgs.createVariable("usgs_id", "i8", ("num_usgs_reaches",), fill_value=self.INT_FILL)
+                usgs.createDimension("nchars", 16)
+                usgs_id = usgs.createVariable("usgs_id", "S1", ("num_usgs_reaches", "nchars"), fill_value=self.INT_FILL)
                 usgs_id.long_name = "USGS_ID_number"
-                usgs_id[:] = np.nan_to_num(self.map_dict[continent]["usgs_id"], copy=True, nan=self.INT_FILL)
+                usgs_id[:] = stringtochar(self.map_dict[continent]["usgs_id"].astype("S16"))
 
                 usgs_q = usgs.createVariable("usgs_q", "f8", ("num_usgs_reaches", "num_days"), fill_value=self.FLOAT_FILL)
                 usgs_q.long_name = "USGS_discharge_time_series_(daily)"
@@ -145,7 +146,7 @@ class GageAppend:
             
             # Reach identifiers
             sos_ids = sos_data["reach_id"]
-            usgs_ids = np.array(list(self.usgs_dict["reachId"].values()), dtype=np.int64)
+            usgs_ids = self.usgs_dict["reachId"]
             same_ids = np.intersect1d(sos_ids, usgs_ids)
             indexes = np.where(np.isin(usgs_ids, same_ids))[0]
 
@@ -161,14 +162,14 @@ class GageAppend:
                 self.map_dict[continent]["mean_q"] = self.usgs_dict["Qmean"][indexes]
                 self.map_dict[continent]["min_q"] = self.usgs_dict["Qmin"][indexes]
                 self.map_dict[continent]["tyr"] = self.usgs_dict["TwoYr"][indexes]
-                self.map_dict[continent]["usgs_id"] = np.array(list(self.usgs_dict["dataUSGS"].values()), dtype=np.int64)[indexes]
+                self.map_dict[continent]["usgs_id"] = np.array(self.usgs_dict["dataUSGS"])[indexes]
                 self.map_dict[continent]["usgs_q"] = self.usgs_dict["Qwrite"][indexes,:]
                 self.map_dict[continent]["usgs_qt"] = self.usgs_dict["Twrite"][indexes,:]
 
     def read_sos(self):
         """Reads in data from the SoS and stores in sos_dict attribute."""
 
-        with scandir(self.sos_dir / "constrained") as entries:
+        with scandir(self.sos_dir) as entries:
             for sos_file in entries:
                 continent = sos_file.name.split('_')[0]
                 sos = Dataset(Path(sos_file))
