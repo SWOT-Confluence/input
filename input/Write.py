@@ -77,7 +77,6 @@ class Write:
         """
         
         dirs = confluence_fs.ls(f"confluence-sos/{run_type}")
-        print(dirs)
         curr_dir = max(dirs)
         files = confluence_fs.glob(f"{curr_dir}/*.nc")
         for file in files:
