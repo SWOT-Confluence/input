@@ -24,7 +24,7 @@ COPY credentials /root/.aws/credentials
 
 # Stage 4 - Copy Input code
 FROM stage3 as stage4
-COPY ./src /app/src/
+COPY ./input /app/input/
 
 # Stage 5 - Execute module
 FROM stage4 as stage5
