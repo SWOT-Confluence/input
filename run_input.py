@@ -36,6 +36,7 @@ def main():
     except IndexError:
         run_type = "unconstrained"
         pull = "no pull"
+    print(f"Running on '{run_type}' data product with gage pull status of '{pull}'.")
 
     # Login
     print("Logging into AWS infrastructure.")
