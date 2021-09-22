@@ -130,9 +130,9 @@ class Extract:
         node_dict = create_node_dict(sac_data["sac_nodes"])
         for d in date_dirs:
             reach_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/reaches.shp")[0]
-            extract_reach_local(reach_file, reach_dict, time)
+            extract_reach(reach_file, reach_dict, time)
             node_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/nodes.shp")[0]
-            extract_node_local(node_file, node_dict, time)
+            extract_node(node_file, node_dict, time)
             time += 1
         self.reach_data["na"] = reach_dict
         self.node_data["na"] = node_dict
@@ -206,7 +206,7 @@ def create_reach_dict(reach_ids):
         "time": []
     }
 
-def extract_node_local(node_file, node_dict, time):
+def extract_node(node_file, node_dict, time):
     """Extract node level data from shapefile found at node_path.
     
     Parameters
@@ -256,7 +256,7 @@ def extract_node_local(node_file, node_dict, time):
     xovr_cal_q[time].replace(-999, np.nan, inplace=True)
     node_dict["xovr_cal_q"] = node_dict["xovr_cal_q"].join(xovr_cal_q)
 
-def extract_reach_local(reach_file, reach_dict, time):
+def extract_reach(reach_file, reach_dict, time):
     """Extract reach level data from shapefile found at reach_path.
     
     Parameters
