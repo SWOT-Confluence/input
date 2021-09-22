@@ -23,10 +23,10 @@ class TestExtract(unittest.TestCase):
     def test_append_node(self):
         """Tests append_node method."""
 
-        reach = Path(__file__).parent / "test_data" / "reach_data"
+        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
         with open(reach, "rb") as pf:
             reach_dict = pickle.load(pf)
-        node = Path(__file__).parent / "test_data" / "node_data"
+        node = Path(__file__).parent / "test_data" / "extract_node_data"
         with open(node, "rb") as pf:
             node_dict = pickle.load(pf)
 
@@ -48,7 +48,7 @@ class TestExtract(unittest.TestCase):
     def test_calculate_d_x_a(self):
         """Tests calculate_d_x_a function."""
 
-        reach = Path(__file__).parent / "test_data" / "reach_data"
+        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
         with open(reach, "rb") as pf:
             reach_dict = pickle.load(pf)
 
