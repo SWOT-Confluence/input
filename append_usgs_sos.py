@@ -8,8 +8,8 @@ from pathlib import Path
 from input.gage_pull.GageAppend import GageAppend
 from input.gage_pull.GagePull import GagePull
 
-USGS_DIR = Path("/home/nikki/Documents/confluence/data/sos/usgs")
-SOS_DIR = Path("/home/nikki/Documents/confluence/data/sos/sos/constrained")
+USGS_DIR = Path("")
+SOS_DIR = Path("")
 
 def main():
     
