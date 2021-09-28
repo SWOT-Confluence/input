@@ -103,6 +103,8 @@ class GageAppend:
                 self.__copy_sos(temp["model"], sos["model"])
                 sos["model"].createGroup("grdc")
                 self.__copy_sos(temp["model"]["grdc"], sos["model"]["grdc"])
+                sos.createGroup("gbpriors")
+                self.__copy_sos(temp["gbpriors"], sos["gbpriors"])
 
                 if temp.version != "0000":
                     self.__copy_past_results(temp, sos)
@@ -169,6 +171,10 @@ class GageAppend:
         self.__copy_sos(temp["moi"]["metroman"], sos["moi"]["metroman"])
         sos["moi"].createGroup("momma")
         self.__copy_sos(temp["moi"]["momma"], sos["moi"]["momma"])
+        sos["moi"].createGroup("sad")
+        self.__copy_sos(temp["moi"]["sad"], sos["moi"]["sad"])
+        sos["moi"].createGroup("sic4dvar")
+        self.__copy_sos(temp["moi"]["sic4dvar"], sos["moi"]["sic4dvar"])
 
     def __append_pd(self, temp, sos):
         """Append postdiagnostics data.
@@ -286,10 +292,17 @@ class GageAppend:
         self.__copy_sos(temp["hivdi"], sos["hivdi"])
         sos.createGroup("metroman")
         self.__copy_sos(temp["metroman"], sos["metroman"])
+        sos.createGroup("sad")
+        self.__copy_sos(temp["sad"], sos["sad"])
+        sos.createGroup("sic4dvar")
+        sos["sic4dvar"].createVLType(np.float64, "vlen")
+        self.__copy_sos(temp["sic4dvar"], sos["sic4dvar"])
         self.__append_moi(temp, sos)
         self.__append_pd(temp, sos)
         sos.createGroup("offline")
         self.__copy_sos(temp["offline"], sos["offline"])
+        sos.createGroup("validation")
+        self.__copy_sos(temp["validation"], sos["validation"])
 
     def __copy_sos(self, temp, sos):
         """Copy SoS data to new SoS file.
