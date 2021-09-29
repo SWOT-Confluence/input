@@ -8,7 +8,7 @@ also pull USGS gage data which is dictated by the "pull" command line argument.
 
 Command line arguments:
 run_type: values should be "constrained" or "unconstrained"
-pull: values should be "pull" or "no pull"
+pull: values should be "pull" or "no_pull"
 Default is to run unconstrained with no pull.
 If you specify constrained you must specify whether to pull gage data.
 """
@@ -35,7 +35,7 @@ def main():
         pull = sys.argv[2]
     except IndexError:
         run_type = "unconstrained"
-        pull = "no pull"
+        pull = "no_pull"
     print(f"Running on '{run_type}' data product with gage pull status of '{pull}'.")
 
     # Login
