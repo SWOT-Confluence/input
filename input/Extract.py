@@ -69,6 +69,13 @@ class Extract:
             "615": date(2009,6,15), "626": date(2009,6,26)           
         }
 
+    TIME_DICT = { "109": date(2009,1,9), "110": date(2009,1,10),
+            "119": date(2009,1,19), "130": date(2009,1,30), "131": date(2009,1,31),
+            "209": date(2009,2,9), "220": date(2009,2,20), "221": date(2009,2,21),
+            "302": date(2009,3,2), "313": date(2009,3,13), "314": date(2009,3,14),
+            "323": date(2009,3,23)           
+        }
+
     def __init__(self):
         self.reach_data = { "af": {}, "eu": {}, "si": {}, "as": 
             {}, "au": {}, "sa": {}, "na": {}, "ar": {}, "gr": {} }
@@ -130,9 +137,9 @@ class Extract:
         node_dict = create_node_dict(sac_data["sac_nodes"])
         for d in date_dirs:
             reach_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/reaches.shp")[0]
-            extract_reach_local(reach_file, reach_dict, time)
+            extract_reach(reach_file, reach_dict, time)
             node_file = confluence_fs.glob(f"confluence-swot/*/{d}/riverobs_nominal_20201105/river_data/nodes.shp")[0]
-            extract_node_local(node_file, node_dict, time)
+            extract_node(node_file, node_dict, time)
             time += 1
         self.reach_data["na"] = reach_dict
         self.node_data["na"] = node_dict
@@ -206,7 +213,7 @@ def create_reach_dict(reach_ids):
         "time": []
     }
 
-def extract_node_local(node_file, node_dict, time):
+def extract_node(node_file, node_dict, time):
     """Extract node level data from shapefile found at node_path.
     
     Parameters
@@ -256,7 +263,7 @@ def extract_node_local(node_file, node_dict, time):
     xovr_cal_q[time].replace(-999, np.nan, inplace=True)
     node_dict["xovr_cal_q"] = node_dict["xovr_cal_q"].join(xovr_cal_q)
 
-def extract_reach_local(reach_file, reach_dict, time):
+def extract_reach(reach_file, reach_dict, time):
     """Extract reach level data from shapefile found at reach_path.
     
     Parameters

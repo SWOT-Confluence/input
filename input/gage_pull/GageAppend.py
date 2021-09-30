@@ -87,30 +87,33 @@ class GageAppend:
 
         # Copy data from SoS files to new files and append USGS data
         for continent in self.sos_dict.keys():
-            temp_file = glob.glob(f"{self.temp_sos.name}/{continent}*")[0]
-            temp = Dataset(temp_file, 'r')
+            if self.sos_dict[continent]:
+                temp_file = glob.glob(f"{self.temp_sos.name}/{continent}*")[0]
+                temp = Dataset(temp_file, 'r')
 
-            sos_file = f"{self.sos_dir}/{continent}_apriori_rivers_v07_SOS.nc"
-            sos = Dataset(sos_file, 'w')
+                sos_file = f"{self.sos_dir}/{Path(temp_file).name}"
+                sos = Dataset(sos_file, 'w')
 
-            self.__copy_sos(temp, sos)
-            sos.createGroup("reaches")
-            self.__copy_sos(temp["reaches"], sos["reaches"])
-            sos.createGroup("nodes")
-            self.__copy_sos(temp["nodes"], sos["nodes"])
-            sos.createGroup("model")
-            self.__copy_sos(temp["model"], sos["model"])
-            sos["model"].createGroup("grdc")
-            self.__copy_sos(temp["model"]["grdc"], sos["model"]["grdc"])
+                self.__copy_sos(temp, sos)
+                sos.createGroup("reaches")
+                self.__copy_sos(temp["reaches"], sos["reaches"])
+                sos.createGroup("nodes")
+                self.__copy_sos(temp["nodes"], sos["nodes"])
+                sos.createGroup("model")
+                self.__copy_sos(temp["model"], sos["model"])
+                sos["model"].createGroup("grdc")
+                self.__copy_sos(temp["model"]["grdc"], sos["model"]["grdc"])
+                sos.createGroup("gbpriors")
+                self.__copy_sos(temp["gbpriors"], sos["gbpriors"])
 
-            if temp.version != "0000":
-                self.__copy_past_results(temp, sos)
+                if temp.version != "0000":
+                    self.__copy_past_results(temp, sos)
 
-            if self.map_dict[continent]:
-                self.__append_usgs_data(sos, continent)           
+                if self.map_dict[continent]:
+                    self.__append_usgs_data(sos, continent)           
 
-            temp.close()
-            sos.close()
+                temp.close()
+                sos.close()
         
         # Remove temporary directory
         rmtree(Path(self.temp_sos.name))
@@ -168,6 +171,10 @@ class GageAppend:
         self.__copy_sos(temp["moi"]["metroman"], sos["moi"]["metroman"])
         sos["moi"].createGroup("momma")
         self.__copy_sos(temp["moi"]["momma"], sos["moi"]["momma"])
+        sos["moi"].createGroup("sad")
+        self.__copy_sos(temp["moi"]["sad"], sos["moi"]["sad"])
+        sos["moi"].createGroup("sic4dvar")
+        self.__copy_sos(temp["moi"]["sic4dvar"], sos["moi"]["sic4dvar"])
 
     def __append_pd(self, temp, sos):
         """Append postdiagnostics data.
@@ -233,13 +240,13 @@ class GageAppend:
         monthly_q[:] = np.nan_to_num(self.map_dict[continent]["monthly_q"], copy=True, nan=self.FLOAT_FILL)
 
         mean_q = usgs.createVariable("mean_q", "f8", ("num_usgs_reaches",), fill_value=self.FLOAT_FILL)
-        mean_q.long_name = "USGS mean_discahrge"
+        mean_q.long_name = "USGS mean_discharge"
         mean_q.comment = "USGS mean discharge value in this cell"
         mean_q.units = "m^3/s"
         mean_q[:] = np.nan_to_num(self.map_dict[continent]["mean_q"], copy=True, nan=self.FLOAT_FILL)
 
         min_q = usgs.createVariable("min_q", "f8", ("num_usgs_reaches",), fill_value=self.FLOAT_FILL)
-        min_q.long_name = "USGS minimum_discahrge"
+        min_q.long_name = "USGS minimum_discharge"
         min_q.comment = "USGS lowest discharge value in this cell"
         min_q.units = "m^3/s"
         min_q[:] = np.nan_to_num(self.map_dict[continent]["min_q"], copy=True, nan=self.FLOAT_FILL)
@@ -285,10 +292,17 @@ class GageAppend:
         self.__copy_sos(temp["hivdi"], sos["hivdi"])
         sos.createGroup("metroman")
         self.__copy_sos(temp["metroman"], sos["metroman"])
+        sos.createGroup("sad")
+        self.__copy_sos(temp["sad"], sos["sad"])
+        sos.createGroup("sic4dvar")
+        sos["sic4dvar"].createVLType(np.float64, "vlen")
+        self.__copy_sos(temp["sic4dvar"], sos["sic4dvar"])
         self.__append_moi(temp, sos)
         self.__append_pd(temp, sos)
         sos.createGroup("offline")
         self.__copy_sos(temp["offline"], sos["offline"])
+        sos.createGroup("validation")
+        self.__copy_sos(temp["validation"], sos["validation"])
 
     def __copy_sos(self, temp, sos):
         """Copy SoS data to new SoS file.
@@ -321,28 +335,30 @@ class GageAppend:
         """
 
         for continent, sos_data in self.sos_dict.items():
+            if sos_data:
+                # Reach identifiers
+                sos_ids = sos_data["reach_id"]
+                usgs_ids = self.usgs_dict["reachId"]
+                same_ids = np.intersect1d(sos_ids, usgs_ids)
+                indexes = np.where(np.isin(usgs_ids, same_ids))[0]
 
-            # Reach identifiers
-            sos_ids = sos_data["reach_id"]
-            usgs_ids = self.usgs_dict["reachId"]
-            same_ids = np.intersect1d(sos_ids, usgs_ids)
-            indexes = np.where(np.isin(usgs_ids, same_ids))[0]
-
-            if indexes.size == 0:
-                self.map_dict[continent] = None
+                if indexes.size == 0:
+                    self.map_dict[continent] = None
+                else:
+                    # Map USGS data that matches SoS reach identifiers
+                    self.map_dict[continent]["days"] = np.array(range(1, len(self.usgs_dict["Qwrite"][0]) + 1))
+                    self.map_dict[continent]["usgs_reach_id"] = self.usgs_dict["reachId"].astype(np.int64)[indexes]
+                    self.map_dict[continent]["fdq"] = self.usgs_dict["FDQS"][indexes,:]
+                    self.map_dict[continent]["max_q"] =self.usgs_dict["Qmax"][indexes]
+                    self.map_dict[continent]["monthly_q"] = self.usgs_dict["MONQ"][indexes,:]
+                    self.map_dict[continent]["mean_q"] = self.usgs_dict["Qmean"][indexes]
+                    self.map_dict[continent]["min_q"] = self.usgs_dict["Qmin"][indexes]
+                    self.map_dict[continent]["tyr"] = self.usgs_dict["TwoYr"][indexes]
+                    self.map_dict[continent]["usgs_id"] = np.array(self.usgs_dict["dataUSGS"])[indexes]
+                    self.map_dict[continent]["usgs_q"] = self.usgs_dict["Qwrite"][indexes,:]
+                    self.map_dict[continent]["usgs_qt"] = self.usgs_dict["Twrite"][indexes,:]
             else:
-                # Map USGS data that matches SoS reach identifiers
-                self.map_dict[continent]["days"] = np.array(range(1, len(self.usgs_dict["Qwrite"][0]) + 1))
-                self.map_dict[continent]["usgs_reach_id"] = self.usgs_dict["reachId"].astype(np.int64)[indexes]
-                self.map_dict[continent]["fdq"] = self.usgs_dict["FDQS"][indexes,:]
-                self.map_dict[continent]["max_q"] =self.usgs_dict["Qmax"][indexes]
-                self.map_dict[continent]["monthly_q"] = self.usgs_dict["MONQ"][indexes,:]
-                self.map_dict[continent]["mean_q"] = self.usgs_dict["Qmean"][indexes]
-                self.map_dict[continent]["min_q"] = self.usgs_dict["Qmin"][indexes]
-                self.map_dict[continent]["tyr"] = self.usgs_dict["TwoYr"][indexes]
-                self.map_dict[continent]["usgs_id"] = np.array(self.usgs_dict["dataUSGS"])[indexes]
-                self.map_dict[continent]["usgs_q"] = self.usgs_dict["Qwrite"][indexes,:]
-                self.map_dict[continent]["usgs_qt"] = self.usgs_dict["Twrite"][indexes,:]
+                self.map_dict[continent] = None
 
     def mv_sos(self):
         """Move SoS file to temporary directory.

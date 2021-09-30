@@ -1,16 +1,21 @@
 # Standard imports
+from datetime import date
 import json
-from os import scandir
+from os import listdir, scandir
 from pathlib import Path
 import pickle
 import unittest
+from unittest.mock import patch
+import geopandas
 
 # Third-party imports
+import geopandas as gpd
 import numpy as np
 import pandas as pd
+from s3fs import S3FileSystem
 
 # Local imports
-from input.Extract import Extract, calculate_d_x_a, create_reach_dict, create_node_dict, extract_node_local, extract_reach_local
+from input.Extract import Extract, calculate_d_x_a, create_reach_dict, create_node_dict, extract_node, extract_reach
 
 class TestExtract(unittest.TestCase):
     """Tests methods and functions from Extract module."""
@@ -18,10 +23,10 @@ class TestExtract(unittest.TestCase):
     def test_append_node(self):
         """Tests append_node method."""
 
-        reach = Path(__file__).parent / "test_data" / "reach_data"
+        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
         with open(reach, "rb") as pf:
             reach_dict = pickle.load(pf)
-        node = Path(__file__).parent / "test_data" / "node_data"
+        node = Path(__file__).parent / "test_data" / "extract_node_data"
         with open(node, "rb") as pf:
             node_dict = pickle.load(pf)
 
@@ -43,7 +48,7 @@ class TestExtract(unittest.TestCase):
     def test_calculate_d_x_a(self):
         """Tests calculate_d_x_a function."""
 
-        reach = Path(__file__).parent / "test_data" / "reach_data"
+        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
         with open(reach, "rb") as pf:
             reach_dict = pickle.load(pf)
 
@@ -55,18 +60,38 @@ class TestExtract(unittest.TestCase):
         expected_dxa.name = "77449100161"
         pd.testing.assert_series_equal(expected_dxa, actual_dxa, atol=1e-2)
 
-    def test_extract_data_local(self):
-        """Tests exctract_data_local method."""
-
-        input = Path(__file__).parent / "test_sf"
-        with scandir(input) as entries:
-            dirs = sorted([ entry.path for entry in entries ])
-        ext = Extract()
-        ext.extract_data_local(dirs)
+    @patch.object(S3FileSystem, "ls")
+    @patch.object(Extract, "TIME_DICT")
+    def test_extract_data(self, mock_time, mock_fs):
+        """Tests extract_data method."""
         
+        # Mock API calls and time dictionary
+        mock_fs.ls.side_effect = [[Path(__file__).parent / "test_sf" / "pass249"], ["test_sf/pass249/109", "test_sf/pass249/130", "test_sf/pass249/220", "test_sf/pass249/313", "test_sf/pass249/403", "test_sf/pass249/424", "test_sf/pass249/515", "test_sf/pass249/605", "test_sf/pass249/626"]]
+        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
+        mock_fs.glob.return_value = [str(reach_path)]
+        key = str(reach_path).split('/')[2]
+        mock_time = {key: date(2009,6,26)}
+        
+        df_list = []
+        with scandir(Path(__file__).parent / "test_sf" / "pass249") as entries:
+            dirs = [ entry.name for entry in entries]
+        
+        dirs = sorted(dirs)
+        for d in dirs:
+            reach = Path(__file__).parent / "test_sf" / "pass249" / d / "riverobs_nominal_20201105" / "river_data" / f"{d}_reaches.shp"
+            df_list.append(gpd.read_file(reach))
+            node = Path(__file__).parent / "test_sf" / "pass249" / d / "riverobs_nominal_20201105" / "river_data" / f"{d}_nodes.shp"
+            df_list.append(gpd.read_file(node))
+        
+        # Run method
+        ext = Extract()
+        with patch.object(geopandas, "read_file") as mock_gpd:
+            mock_gpd.side_effect = df_list
+            ext.extract_data(mock_fs)
+
         # reach-level data
         reach = ext.reach_data["na"]
-        self.assertEqual(9, reach["nt"])
+        self.assertEqual(9, len(reach["time"]))
         
         expected_width = np.array([79.981045, 102.228203, 131.835053, 72.060132, 73.473868, 73.547419, 74.904443, 73.93421, 87.579335])
         np.testing.assert_array_almost_equal(expected_width, reach["width"].loc["77449100061"].to_numpy())
@@ -79,7 +104,7 @@ class TestExtract(unittest.TestCase):
 
         # node-level data
         node = ext.node_data["na"]
-        self.assertEqual(9, node["nt"])
+        self.assertEqual(9, len(reach["time"]))
 
         expected_width = np.array([43.208299, 62.901061, 85.893091, 44.241324, 49.556449, 30.668317, 60.893438, 50.442531, 44.137341])
         actual_width = node["width"].loc[node["width"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
@@ -92,15 +117,20 @@ class TestExtract(unittest.TestCase):
         actual_slope = node["slope2"].loc[node["slope2"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
         np.testing.assert_array_almost_equal(expected_slope, actual_slope)
 
-    def test_extract_node_local(self):
-        """Tests extract_node_local function."""
+    def test_extract_node(self):
+        """Tests extract_node function."""
 
-        node_path = Path(__file__).parent / "test_sf" / "109"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
-        with open(Path(__file__).parent.parent / "src" / "data" / "sac.json") as f:
+        node_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
+        df1 = gpd.read_file(node_path)
+        
+        with open(Path(__file__).parent.parent / "input" / "data" / "sac.json") as f:
             sac_node = json.load(f)["sac_nodes"]
+        
         time = 0
         node_dict = create_node_dict(sac_node)
-        extract_node_local(node_path, node_dict, time)
+        with patch.object(geopandas, "read_file") as mock_gpd:
+            mock_gpd.return_value = df1
+            extract_node(node_path, node_dict, time)
         
         expected_reach = np.full((49), fill_value="77449100061")
         actual_reach = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"]["reach_id"].to_numpy()
@@ -118,9 +148,12 @@ class TestExtract(unittest.TestCase):
         actual_wse = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"].iloc[:5][0].to_numpy()
         np.testing.assert_array_almost_equal(expected_wse, actual_wse)
 
-        node_path = Path(__file__).parent / "test_sf" / "130"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
+        node_path = Path(__file__).parent / "test_sf" / "pass249" / "130"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
+        df2 = gpd.read_file(node_path)
         time = 1
-        extract_node_local(node_path, node_dict, time)
+        with patch.object(geopandas, "read_file") as mock_gpd:
+            mock_gpd.return_value = df2
+            extract_node(node_path, node_dict, time)
 
         expected_width = np.array([43.208299, 62.901061, 69.361156, 58.018872, 76.104040, 63.814723, 92.461620, 76.794963, 76.389673, 90.156724])
         expected_width = np.reshape(expected_width, (5,2))
@@ -132,23 +165,35 @@ class TestExtract(unittest.TestCase):
         actual_wse = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"].loc[:,0:].iloc[:5].to_numpy()
         np.testing.assert_array_almost_equal(expected_wse, actual_wse)
 
-    def test_extract_reach_local(self):
-        """Tests extract_reach_local funtion."""
+    @patch.object(Extract, "TIME_DICT")
+    def test_extract_reach(self, mock_time):
+        """Tests extract_reach funtion."""
 
-        reach_path = Path(__file__).parent / "test_sf" / "109"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-        with open(Path(__file__).parent.parent / "src" / "data" / "sac.json") as f:
+        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
+        df1 = gpd.read_file(reach_path)
+
+        key = str(reach_path).split('/')[2]
+        mock_time = {key: date(2009,6,26)}
+        
+        with open(Path(__file__).parent.parent / "input" / "data" / "sac.json") as f:
             sac_reach = json.load(f)["sac_reaches"]
+        
         time = 0
         reach_dict = create_reach_dict(sac_reach)
-        extract_reach_local(reach_path, reach_dict, time)
-
+        with patch.object(geopandas, "read_file") as mock_gpd:
+            mock_gpd.return_value = df1
+            extract_reach(str(reach_path), reach_dict, time)
+        
         self.assertAlmostEqual(79.981045, reach_dict["width"].loc["77449100061"].iloc[0])
         self.assertAlmostEqual(7.99663, reach_dict["wse"].loc["77449100061"].iloc[0])
         self.assertAlmostEqual( 0.00010045794, reach_dict["slope2"].loc["77449100061"].iloc[0], places=7)
 
-        reach_path = Path(__file__).parent / "test_sf" / "130"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
+        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "130"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
+        df2 = gpd.read_file(reach_path)
         time = 1
-        extract_reach_local(reach_path, reach_dict, time)
+        with patch.object(geopandas, "read_file") as mock_gpd:
+            mock_gpd.return_value = df2
+            extract_reach(str(reach_path), reach_dict, time)
 
         expected_width = pd.Series([79.981045, 102.228203])
         expected_width.name = "77449100061"
