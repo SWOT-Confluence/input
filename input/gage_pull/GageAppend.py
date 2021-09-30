@@ -91,7 +91,7 @@ class GageAppend:
                 temp_file = glob.glob(f"{self.temp_sos.name}/{continent}*")[0]
                 temp = Dataset(temp_file, 'r')
 
-                sos_file = f"{self.sos_dir}/{continent}_apriori_rivers_v07_SOS.nc"
+                sos_file = f"{self.sos_dir}/{Path(temp_file).name}"
                 sos = Dataset(sos_file, 'w')
 
                 self.__copy_sos(temp, sos)
