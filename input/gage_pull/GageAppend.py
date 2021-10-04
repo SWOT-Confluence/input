@@ -103,8 +103,11 @@ class GageAppend:
                 self.__copy_sos(temp["model"], sos["model"])
                 sos["model"].createGroup("grdc")
                 self.__copy_sos(temp["model"]["grdc"], sos["model"]["grdc"])
-                sos.createGroup("gbpriors")
-                self.__copy_sos(temp["gbpriors"], sos["gbpriors"])
+                gb_grp = sos.createGroup("gbpriors")
+                gb_grp.createGroup("reach")
+                self.__copy_sos(temp["gbpriors"]["reach"], sos["gbpriors"]["reach"])
+                gb_grp.createGroup("node")
+                self.__copy_sos(temp["gbpriors"]["node"], sos["gbpriors"]["node"])
 
                 if temp.version != "0000":
                     self.__copy_past_results(temp, sos)
