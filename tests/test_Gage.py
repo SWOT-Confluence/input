@@ -53,7 +53,7 @@ class test_Gage(unittest.TestCase):
         """Test append_data method."""
 
         # Copy and load data needed for test
-        file_name = "na_apriori_rivers_v07_SOS.nc"
+        file_name = "na_sword_v11_SOS.nc"
         if not self.APPEND_DIR.exists(): self.APPEND_DIR.mkdir(parents=True, exist_ok=True)
         copyfile(self.SOS_DIR / file_name, self.APPEND_DIR / file_name)
 
@@ -67,7 +67,7 @@ class test_Gage(unittest.TestCase):
         gage_append.append_data()
 
         # Assert results
-        sf = self.APPEND_DIR / "na_apriori_rivers_v07_SOS.nc"
+        sf = self.APPEND_DIR / "na_sword_v11_SOS.nc"
         dataset = Dataset(sf)
 
          # attributes
@@ -75,13 +75,13 @@ class test_Gage(unittest.TestCase):
         self.assertEqual("constrained", dataset.run_type)
 
         # dimensions
-        self.assertEqual(1631444, dataset.dimensions["num_nodes"].size)
-        self.assertEqual(39486, dataset.dimensions["num_reaches"].size)
+        self.assertEqual(1642238, dataset.dimensions["num_nodes"].size)
+        self.assertEqual(37565, dataset.dimensions["num_reaches"].size)
         self.assertEqual(1, dataset.dimensions["time_steps"].size)
         self.assertEqual(12, dataset["model"].dimensions["num_months"].size)
         self.assertEqual(20, dataset["model"].dimensions["probability"].size)
         self.assertEqual(15240, dataset["model"]["usgs"].dimensions["num_days"].size)
-        self.assertEqual(8, dataset["model"]["usgs"].dimensions["num_usgs_reaches"].size)
+        self.assertEqual(10, dataset["model"]["usgs"].dimensions["num_usgs_reaches"].size)
 
         # data
         usgs = dataset["model"]["usgs"]
