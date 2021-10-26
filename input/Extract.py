@@ -58,23 +58,23 @@ class Extract:
 
     FLOAT_FILL = -999999999999
 
-    # TIME_DICT = { "109": date(2009,1,9), "110": date(2009,1,10),
-    #         "119": date(2009,1,19), "130": date(2009,1,30), "131": date(2009,1,31),
-    #         "209": date(2009,2,9), "220": date(2009,2,20), "221": date(2009,2,21),
-    #         "302": date(2009,3,2), "313": date(2009,3,13), "314": date(2009,3,14),
-    #         "323": date(2009,3,23), "403": date(2009,4,3), "404": date(2009,4,4),
-    #         "413": date(2009,4,13), "424": date(2009,4,24), "425": date(2009,4,25),
-    #         "504": date(2009,5,4), "515": date(2009,5,15), "516": date(2009,5,16),
-    #         "525": date(2009,5,25), "605": date(2009,6,5), "606": date(2009,6,6),
-    #         "615": date(2009,6,15), "626": date(2009,6,26)           
-    # }
-
     TIME_DICT = { "109": date(2009,1,9), "110": date(2009,1,10),
             "119": date(2009,1,19), "130": date(2009,1,30), "131": date(2009,1,31),
             "209": date(2009,2,9), "220": date(2009,2,20), "221": date(2009,2,21),
             "302": date(2009,3,2), "313": date(2009,3,13), "314": date(2009,3,14),
-            "323": date(2009,3,23)           
+            "323": date(2009,3,23), "403": date(2009,4,3), "404": date(2009,4,4),
+            "413": date(2009,4,13), "424": date(2009,4,24), "425": date(2009,4,25),
+            "504": date(2009,5,4), "515": date(2009,5,15), "516": date(2009,5,16),
+            "525": date(2009,5,25), "605": date(2009,6,5), "606": date(2009,6,6),
+            "615": date(2009,6,15), "626": date(2009,6,26)           
     }
+
+    # TIME_DICT = { "109": date(2009,1,9), "110": date(2009,1,10),
+    #         "119": date(2009,1,19), "130": date(2009,1,30), "131": date(2009,1,31),
+    #         "209": date(2009,2,9), "220": date(2009,2,20), "221": date(2009,2,21),
+    #         "302": date(2009,3,2), "313": date(2009,3,13), "314": date(2009,3,14),
+    #         "323": date(2009,3,23)           
+    # }
 
     def __init__(self):
         self.reach_data = { "af": {}, "eu": {}, "si": {}, "as": 
@@ -181,6 +181,7 @@ def create_node_dict(node_ids):
             "width" : df.copy(deep=True),
             "width_u": df.copy(deep=True),
             "wse" : df.copy(deep=True),
+            "wse_u" : df.copy(deep=True),
             "d_x_area": df.copy(deep=True),
             "d_x_area_u": df.copy(deep=True),
             "node_q" : df.copy(deep=True),
@@ -208,6 +209,7 @@ def create_reach_dict(reach_ids):
         "width" : df.copy(deep=True),
         "width_u": df.copy(deep=True),
         "wse" : df.copy(deep=True),
+        "wse_u" : df.copy(deep=True),
         "d_x_area": df.copy(deep=True),
         "d_x_area_u": df.copy(deep=True),
         "reach_q" : df.copy(deep=True),
@@ -247,6 +249,10 @@ def extract_node(node_file, node_dict, time):
     wse = df[["node_id", "wse"]].rename(columns={"wse": time}).set_index("node_id")
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
     node_dict["wse"] = node_dict["wse"].join(wse)
+
+    wse_u = df[["node_id", "wse_u"]].rename(columns={"wse_u": time}).set_index("node_id")
+    wse_u[time].mask(np.isclose(wse_u[time].values, -1.00000000e+12), inplace=True)
+    node_dict["wse_u"] = node_dict["wse_u"].join(wse_u)
 
     node_q = df[["node_id", "node_q"]].rename(columns={"node_q": time}).set_index("node_id")
     node_dict["node_q"] = node_dict["node_q"].join(node_q)
@@ -309,6 +315,10 @@ def extract_reach(reach_file, reach_dict, time):
     wse = df[["reach_id", "wse"]].rename(columns={"wse": time}).set_index("reach_id")
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
     reach_dict["wse"] = reach_dict["wse"].join(wse)
+
+    wse_u = df[["reach_id", "wse_u"]].rename(columns={"wse_u": time}).set_index("reach_id")
+    wse_u[time].mask(np.isclose(wse_u[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["wse_u"] = reach_dict["wse_u"].join(wse_u)
 
     d_x_area = calculate_d_x_a(wse[time], width[time]).rename(time)
     reach_dict["d_x_area"] = reach_dict["d_x_area"].join(d_x_area)

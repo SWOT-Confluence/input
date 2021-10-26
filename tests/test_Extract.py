@@ -102,6 +102,9 @@ class TestExtract(unittest.TestCase):
         expected_wse = np.array([7.99663, 8.09615, 14.86537, 8.91665, 8.16795, 8.29723, 8.7095, 8.53303, 8.92249])
         np.testing.assert_array_almost_equal(expected_wse, reach["wse"].loc["77449100061"].to_numpy())
 
+        expected_wse_u = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        np.testing.assert_array_almost_equal(expected_wse_u, reach["wse_u"].loc["77449100061"].to_numpy())
+
         expected_slope = np.array([0.00010045794, 9.540541e-05, 9.765124e-05, 8.985157e-05, 0.00010460104, 0.00013338136, 0.00011058383, 1.900279e-05, 8.804341e-05])
         np.testing.assert_array_almost_equal(expected_slope, reach["slope2"].loc["77449100061"].to_numpy())
 
@@ -126,6 +129,9 @@ class TestExtract(unittest.TestCase):
         expected_wse = np.array([7.64898, 7.65856, 14.55173, 8.47558, 7.55344, 8.10743, 8.22878, 7.98136, 8.5523])
         actual_wse = node["wse"].loc[node["wse"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
         np.testing.assert_array_almost_equal(expected_wse, actual_wse)
+
+        actual_wse_u = node["wse_u"].loc[node["wse_u"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
+        np.testing.assert_array_almost_equal(expected_wse_u, actual_wse_u)
 
         actual_slope = node["slope2"].loc[node["slope2"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
         np.testing.assert_array_almost_equal(expected_slope, actual_slope)

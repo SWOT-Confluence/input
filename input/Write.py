@@ -247,8 +247,7 @@ class Write:
         width_u.comment = "Total one-sigma uncertainty (random and systematic) in the node width."
         width_u[:] = np.nan_to_num(data["width_u"].loc[data["width_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
-        wse = dataset.createVariable("wse", "f8", ("nx", "nt"), 
-            fill_value = self.FLOAT_FILL)
+        wse = dataset.createVariable("wse", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
         wse.long_name = "water surface elevation with respect to the geoid"
         wse.units = "m"
         wse.valid_min = -1000
@@ -256,6 +255,14 @@ class Write:
         wse.comment = "Fitted node water surface elevation, relative to the provided model of the geoid (geoid_hght), with all corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["wse"].loc[data["wse"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
         
+        wse_u = dataset.createVariable("wse_u", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
+        wse_u.long_name = "total uncertainty in the water surface elevation"
+        wse_u.units = "m"
+        wse_u.valid_min = 0.0
+        wse_u.valid_max = 999999
+        wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the node WSE, including uncertainties of corrections, and variation about the fit."
+        wse_u[:] = np.nan_to_num(data["wse_u"].loc[data["wse_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
             fill_value=self.INT_FILL)
         node_q.long_name = "summary quality indicator for the node"
@@ -431,6 +438,14 @@ class Write:
         wse.valid_max = 100000
         wse.comment = "Fitted reach water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["wse"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+
+        wse_u = dataset.createVariable("wse_u", "f8", ("nt",), fill_value=self.FLOAT_FILL)
+        wse_u.long_name = "total uncertainty in the water surface elevation"
+        wse_u.units = "m"
+        wse_u.valid_min = 0.0
+        wse_u.valid_max = 999999
+        wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the reach WSE, including uncertainties of corrections, and variation about the fit."
+        wse_u[:] = np.nan_to_num(data["wse_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
