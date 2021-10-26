@@ -166,6 +166,9 @@ class Write:
         
     def __write_node_vars(self, data, dataset, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
+
+        TODO:
+        - d_x_area_u max value is larger than PDD max value documentation
         
         Parameters:
         data: Pandas.DataFrame
@@ -196,7 +199,17 @@ class Write:
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
+        dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database. Extracted from reach-level and appended to node."
         dxa[:] = np.nan_to_num(data["d_x_area"].loc[data["d_x_area"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+
+        dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        dxa_u.long_name = "total uncertainty of the change in the cross-sectional area"
+        dxa_u.units = "m^2"
+        dxa_u.valid_min = 0
+        dxa_u.valid_max = 1000000000    # TODO fix to match PDD
+        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area. Extracted from reach-level and appended to node."
+        dxa_u[:] = np.nan_to_num(data["d_x_area_u"].loc[data["d_x_area_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -204,9 +217,17 @@ class Write:
         slope2.units = "m/m"
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
-        slope2.comment = "slope2 extracted from reach level data and " \
-            + "appended to node."
+        slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower. Extracted from reach-level and appended to node."
         slope2[:] = np.nan_to_num(data["slope2"].loc[data["slope2"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+
+        slope2_u = dataset.createVariable("slope2_u", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        slope2_u.long_name = "uncertainty in the enhanced water surface slope"
+        slope2_u.units = "m/m"
+        slope2_u.valid_min = 0
+        slope2_u.valid_max = 0.1
+        slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit. Extracted from reach-level and appended to node."
+        slope2_u[:] = np.nan_to_num(data["slope2_u"].loc[data["slope2_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -214,7 +235,17 @@ class Write:
         width.units = "m"
         width.valid_min = 0.0
         width.valid_max = 100000
+        width.comment = "Node width."
         width[:] = np.nan_to_num(data["width"].loc[data["width"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+
+        width_u = dataset.createVariable("width_u", "f8", ("nx", "nt"), 
+            fill_value = self.FLOAT_FILL)
+        width_u.long_name = "total uncertainty in the node width"
+        width_u.units = "m"
+        width_u.valid_min = 0
+        width_u.valid_max = 10000
+        width_u.comment = "Total one-sigma uncertainty (random and systematic) in the node width."
+        width_u[:] = np.nan_to_num(data["width_u"].loc[data["width_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
 
         wse = dataset.createVariable("wse", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -222,6 +253,7 @@ class Write:
         wse.units = "m"
         wse.valid_min = -1000
         wse.valid_max = 100000
+        wse.comment = "Fitted node water surface elevation, relative to the provided model of the geoid (geoid_hght), with all corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["wse"].loc[data["wse"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
         
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
@@ -283,7 +315,7 @@ class Write:
 
         partial_f = dataset.createVariable("partial_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
-        partial_f.long_name = "partial reach coverage flag"
+        partial_f.long_name = "partial node coverage flag"
         partial_f.standard_name = "status_flag"
         partial_f.flag_meanings = "covered not_covered"
         partial_f.flag_values = "0 1"
@@ -319,6 +351,9 @@ class Write:
     def __write_reach_vars(self, data, dataset, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
         
+        TODO:
+        - d_x_area_u max value is larger than PDD max value documentation
+
         Parameters:
         data: Pandas.DataFrame
             data frame that hold reach-level SWOT data
@@ -341,7 +376,17 @@ class Write:
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
+        dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database."
         dxa[:] = np.nan_to_num(data["d_x_area"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+
+        dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        dxa_u.long_name = "total uncertainty of the change in the cross-sectional area"
+        dxa_u.units = "m^2"
+        dxa_u.valid_min = 0
+        dxa_u.valid_max = 1000000000    # TODO fix to match PDD
+        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area."
+        dxa_u[:] = np.nan_to_num(data["d_x_area_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -349,7 +394,17 @@ class Write:
         slope2.units = "m/m"
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
+        slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower."
         slope2[:] = np.nan_to_num(data["slope2"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+
+        slope2_u = dataset.createVariable("slope2_u", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        slope2_u.long_name = "uncertainty in the enhanced water surface slope"
+        slope2_u.units = "m/m"
+        slope2_u.valid_min = 0
+        slope2_u.valid_max = 0.1
+        slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit."
+        slope2_u[:] = np.nan_to_num(data["slope2_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
@@ -357,14 +412,24 @@ class Write:
         width.units = "m"
         width.valid_min = 0.0
         width.valid_max = 100000
+        width.comment = "Reach width."
         width[:] = np.nan_to_num(data["width"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
-        wse = dataset.createVariable("wse", "f8", ("nt",),
+        width_u = dataset.createVariable("width_u", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
+        width_u.long_name = "total uncertainty in the reach width"
+        width_u.units = "m"
+        width_u.valid_min = 0
+        width_u.valid_max = 100000
+        width_u.comment = "Total one-sigma uncertainty (random and systematic) in the reach width."
+        width_u[:] = np.nan_to_num(data["width_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+
+        wse = dataset.createVariable("wse", "f8", ("nt",), fill_value=self.FLOAT_FILL)
         wse.long_name = "water surface elevation with respect to the geoid"
         wse.units = "m"
         wse.valid_min = -1000
         wse.valid_max = 100000
+        wse.comment = "Fitted reach water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["wse"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),

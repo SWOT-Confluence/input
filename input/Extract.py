@@ -146,7 +146,9 @@ class Extract:
 
         # Append reach d_x_area and slope2 to the node level
         self.append_node("d_x_area", time)
+        self.append_node("d_x_area_u", time)
         self.append_node("slope2", time)
+        self.append_node("slope2_u", time)
 
 def calculate_d_x_a(wse, width):
     """Calculate and return the change in area.
@@ -175,9 +177,12 @@ def create_node_dict(node_ids):
         df.insert(loc=0, column="reach_id", value=node_ids.values())
         return {
             "slope2" : df.copy(deep=True),
+            "slope2_u" : df.copy(deep=True),
             "width" : df.copy(deep=True),
+            "width_u": df.copy(deep=True),
             "wse" : df.copy(deep=True),
             "d_x_area": df.copy(deep=True),
+            "d_x_area_u": df.copy(deep=True),
             "node_q" : df.copy(deep=True),
             "dark_frac" : df.copy(deep=True),
             "ice_clim_f" : df.copy(deep=True),
@@ -199,9 +204,12 @@ def create_reach_dict(reach_ids):
     df = pd.DataFrame(data=reach_ids, columns=["reach_id"]).set_index("reach_id")
     return {
         "slope2" : df.copy(deep=True),
+        "slope2_u": df.copy(deep=True),
         "width" : df.copy(deep=True),
+        "width_u": df.copy(deep=True),
         "wse" : df.copy(deep=True),
         "d_x_area": df.copy(deep=True),
+        "d_x_area_u": df.copy(deep=True),
         "reach_q" : df.copy(deep=True),
         "dark_frac" : df.copy(deep=True),
         "ice_clim_f" : df.copy(deep=True),
@@ -231,6 +239,10 @@ def extract_node(node_file, node_dict, time):
     width = df[["node_id", "width"]].rename(columns={"width": time}).set_index("node_id")
     width[time].mask(np.isclose(width[time].values, -1.00000000e+12), inplace=True)
     node_dict["width"] = node_dict["width"].join(width)
+
+    width_u = df[["node_id", "width_u"]].rename(columns={"width_u": time}).set_index("node_id")
+    width_u[time].mask(np.isclose(width_u[time].values, -1.00000000e+12), inplace=True)
+    node_dict["width_u"] = node_dict["width_u"].join(width_u)
 
     wse = df[["node_id", "wse"]].rename(columns={"wse": time}).set_index("node_id")
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
@@ -282,9 +294,17 @@ def extract_reach(reach_file, reach_dict, time):
     slope[time].mask(np.isclose(slope[time].values, -1.00000000e+12), inplace=True)
     reach_dict["slope2"] = reach_dict["slope2"].join(slope)
 
+    slope_u = df[["reach_id", "slope2_u"]].rename(columns={"slope2_u": time}).set_index("reach_id")
+    slope_u[time].mask(np.isclose(slope_u[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["slope2_u"] = reach_dict["slope2_u"].join(slope_u)
+
     width = df[["reach_id", "width"]].rename(columns={"width": time}).set_index("reach_id")
     width[time].mask(np.isclose(width[time].values, -1.00000000e+12), inplace=True)
     reach_dict["width"] = reach_dict["width"].join(width)
+
+    width_u = df[["reach_id", "width_u"]].rename(columns={"width_u": time}).set_index("reach_id")
+    width_u[time].mask(np.isclose(width_u[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["width_u"] = reach_dict["width_u"].join(width_u)
 
     wse = df[["reach_id", "wse"]].rename(columns={"wse": time}).set_index("reach_id")
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
@@ -292,6 +312,15 @@ def extract_reach(reach_file, reach_dict, time):
 
     d_x_area = calculate_d_x_a(wse[time], width[time]).rename(time)
     reach_dict["d_x_area"] = reach_dict["d_x_area"].join(d_x_area)
+    
+    # d_x_area = df[["reach_id", "d_x_area"]].rename(columns={"d_x_area": time}).set_index("reach_id")
+    # d_x_area[time].mask(np.isclose(d_x_area[time].values, -1.00000000e+12), inplace=True)
+    # d_x_area[time].mask(np.isclose(d_x_area[time].values, -9999.0), inplace=True)
+    # reach_dict["d_x_area"] = reach_dict["d_x_area"].join(d_x_area)
+
+    d_x_area_u = df[["reach_id", "d_x_area_u"]].rename(columns={"d_x_area_u": time}).set_index("reach_id")
+    d_x_area_u[time].mask(np.isclose(d_x_area_u[time].values, -1.00000000e+12), inplace=True)
+    reach_dict["d_x_area_u"] = reach_dict["d_x_area_u"].join(d_x_area_u)
 
     reach_q = df[["reach_id", "reach_q"]].rename(columns={"reach_q": time}).set_index("reach_id")
     reach_dict["reach_q"] = reach_dict["reach_q"].join(reach_q)
