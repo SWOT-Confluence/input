@@ -73,7 +73,7 @@ class TestWrite(unittest.TestCase):
         expected_wse = np.array([7.64898, 7.65856, 14.55173, 8.47558, 7.55344, 8.10743, 8.22878, 7.98136, 8.5523])
         np.testing.assert_array_almost_equal(expected_wse, swot["node"]["wse"][:].filled(np.nan)[0,:])
 
-        np.testing.assert_array_almost_equal(expected_dxa_u, swot["node"]["wse_u"][0,:].filled(np.nan))
+        np.testing.assert_array_almost_equal(expected_wse_u, swot["node"]["wse_u"][0,:].filled(np.nan))
         
         np.testing.assert_array_almost_equal(expected_slope, swot["node"]["slope2"][0,:].filled(np.nan))
 
