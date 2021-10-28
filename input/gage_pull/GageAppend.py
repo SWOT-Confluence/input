@@ -214,12 +214,16 @@ class GageAppend:
         # USGS data - NEW
         usgs = sos["model"].createGroup("usgs")
 
-        usgs.createDimension("num_days", self.map_dict[continent]["days"].shape[0])
+        usgs.createDimension("num_days", None)
         dt = usgs.createVariable("num_days", "i4", ("num_days", ))
         dt.units = "day"
         dt[:] = self.map_dict[continent]["days"]
 
-        usgs.createDimension("num_usgs_reaches", self.map_dict[continent]["usgs_reach_id"].shape[0])
+        usgs.createDimension("num_usgs_reaches", None)
+        nr = usgs.createVariable("num_usgs_reaches", "i4", ("num_usgs_reaches", ))
+        nr.units = "reach"
+        nr[:] = range(1, self.map_dict[continent]["usgs_reach_id"].shape[0] + 1)
+
         usgs_reach_id = usgs.createVariable("usgs_reach_id", "i8", ("num_usgs_reaches", ))
         usgs_reach_id.format = "CBBBBBRRRRT"
         usgs_reach_id[:] = self.map_dict[continent]["usgs_reach_id"]
