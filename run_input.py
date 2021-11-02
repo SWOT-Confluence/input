@@ -7,10 +7,7 @@ of the SoS based on the "run_type" commandline argument. The Input module can
 also pull USGS gage data which is dictated by the "pull" command line argument.
 
 Command line arguments:
-run_type: values should be "constrained" or "unconstrained"
-pull: values should be "pull" or "no_pull"
-Default is to run unconstrained with no pull.
-If you specify constrained you must specify whether to pull gage data.
+run_type (required): values should be "constrained" or "unconstrained"
 """
 
 # Standard imports
@@ -21,9 +18,7 @@ import sys
 # Local imports
 from input.Extract import Extract
 from input.Login import Login
-from input.Write import Write   
-from input.gage_pull.GageAppend import GageAppend
-from input.gage_pull.GagePull import GagePull
+from input.Write import Write
 
 OUTPUT = Path("/mnt/data")
 
@@ -32,12 +27,12 @@ def main():
     # Command line arguments
     try:
         run_type = sys.argv[1]
-        pull = sys.argv[2]
+        print(f"Running on '{run_type}' data product.")
     except IndexError:
-        run_type = "unconstrained"
-        pull = "no_pull"
-    print(f"Running on '{run_type}' data product with gage pull status of '{pull}'.")
-
+        print("Error: No run type provided; please provide a run type argument.")
+        print("Program exit.")
+        sys.exit(1)
+    
     # Login
     print("Logging into AWS infrastructure.")
     login = Login()
@@ -48,23 +43,15 @@ def main():
     ext = Extract()
     ext.extract_data(login.confluence_fs)
     
-    # Write SWOT data and copy SoS data
+    # Write SWOT data
     print("Writing SWOT data to NetCDF.")
     write = Write(ext.node_data, ext.reach_data, OUTPUT)
     write.write_data()
+
+    # Download SOS to local storage
     print("Downloading SoS.")
     write.copy_sos_data(login.confluence_fs, run_type)
     
-    # Append USGS gage data to the SoS
-    if run_type == "constrained" and pull == "pull":
-        print("Pulling USGS gage data and appending to SoS.")
-        gage_pull = GagePull(OUTPUT / "usgs" / "USGStargetsV3.nc", '1980-1-1', datetime.today().strftime("%Y-%m-%d"))
-        gage_pull.pull()
-        gage_append = GageAppend(OUTPUT / "sos", gage_pull.usgs_dict)
-        gage_append.read_sos()
-        gage_append.map_data()
-        gage_append.append_data()
-
     print("Input operations complete.")
 
 if __name__ == "__main__":
