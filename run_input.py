@@ -47,10 +47,6 @@ def main():
     print("Writing SWOT data to NetCDF.")
     write = Write(ext.node_data, ext.reach_data, OUTPUT)
     write.write_data()
-
-    # Download SOS to local storage
-    print("Downloading SoS.")
-    write.copy_sos_data(login.confluence_fs, run_type)
     
     print("Input operations complete.")
 
