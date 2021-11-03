@@ -51,7 +51,7 @@ class TestWrite(unittest.TestCase):
         expected_wse = np.array([7.99663, 8.09615, 14.86537, 8.91665, 8.16795, 8.29723, 8.7095, 8.53303, 8.92249])
         np.testing.assert_array_almost_equal(expected_wse, swot["reach"]["wse"][:].filled(np.nan))
 
-        expected_wse_u = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+        expected_wse_u = np.array([0.0236, 0.01393, 0.01234, 0.03048, 0.0394, 0.02321, 0.01925, 0.05287, 0.01744])
         np.testing.assert_array_almost_equal(expected_wse_u, swot["reach"]["wse_u"][:].filled(np.nan))
         
         expected_slope = np.array([0.00010045794, 9.540541e-05, 9.765124e-05, 8.985157e-05, 0.00010460104, 0.00013338136, 0.00011058383, 1.900279e-05, 8.804341e-05])
@@ -73,6 +73,7 @@ class TestWrite(unittest.TestCase):
         expected_wse = np.array([7.64898, 7.65856, 14.55173, 8.47558, 7.55344, 8.10743, 8.22878, 7.98136, 8.5523])
         np.testing.assert_array_almost_equal(expected_wse, swot["node"]["wse"][:].filled(np.nan)[0,:])
 
+        expected_wse_u = np.array([0.2903, 0.10705, 0.08462, 0.13247, 0.24189, 0.24391, 0.10614, 0.21155, 0.16516])
         np.testing.assert_array_almost_equal(expected_wse_u, swot["node"]["wse_u"][0,:].filled(np.nan))
         
         np.testing.assert_array_almost_equal(expected_slope, swot["node"]["slope2"][0,:].filled(np.nan))

@@ -250,7 +250,7 @@ def extract_node(node_file, node_dict, time):
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
     node_dict["wse"] = node_dict["wse"].join(wse)
 
-    wse_u = df[["node_id", "wse_u"]].rename(columns={"wse_u": time}).set_index("node_id")
+    wse_u = df[["node_id", "wse_r_u"]].rename(columns={"wse_r_u": time}).set_index("node_id")
     wse_u[time].mask(np.isclose(wse_u[time].values, -1.00000000e+12), inplace=True)
     node_dict["wse_u"] = node_dict["wse_u"].join(wse_u)
 
@@ -316,7 +316,7 @@ def extract_reach(reach_file, reach_dict, time):
     wse[time].mask(np.isclose(wse[time].values, -1.00000000e+12), inplace=True)
     reach_dict["wse"] = reach_dict["wse"].join(wse)
 
-    wse_u = df[["reach_id", "wse_u"]].rename(columns={"wse_u": time}).set_index("reach_id")
+    wse_u = df[["reach_id", "wse_r_u"]].rename(columns={"wse_r_u": time}).set_index("reach_id")
     wse_u[time].mask(np.isclose(wse_u[time].values, -1.00000000e+12), inplace=True)
     reach_dict["wse_u"] = reach_dict["wse_u"].join(wse_u)
 
