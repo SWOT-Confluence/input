@@ -2,18 +2,12 @@
 
 The Input module logs into PO.DAAC AWS S3 infrastructure (TODO) and the 
 Confluence S3 infrastructure. The Input module extracts SWOT observations and
-formats them as one NetCDF per reach while also copying the most recent version
-of the SoS based on the "run_type" commandline argument. The Input module can
-also pull USGS gage data which is dictated by the "pull" command line argument.
-
-Command line arguments:
-run_type (required): values should be "constrained" or "unconstrained"
+formats them as one NetCDF per reach.
 """
 
 # Standard imports
 from datetime import datetime
 from pathlib import Path
-import sys
 
 # Local imports
 from input.Extract import Extract
@@ -23,15 +17,6 @@ from input.Write import Write
 OUTPUT = Path("/mnt/data")
 
 def main():
-
-    # Command line arguments
-    try:
-        run_type = sys.argv[1]
-        print(f"Running on '{run_type}' data product.")
-    except IndexError:
-        print("Error: No run type provided; please provide a run type argument.")
-        print("Program exit.")
-        sys.exit(1)
     
     # Login
     print("Logging into AWS infrastructure.")
