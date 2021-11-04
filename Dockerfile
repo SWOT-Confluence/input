@@ -1,5 +1,5 @@
-# Stage 0 - Create from Python3.9.5 image
-FROM python:slim-buster as stage0
+# Stage 0 - Create from Python3.9.7 image
+FROM python:3.9.7-slim-buster as stage0
 
 # Stage 1 - Debian dependencies
 FROM stage0 as stage1
@@ -7,6 +7,26 @@ RUN apt update \
 	&& DEBIAN_FRONTEND=noninteractive apt install -y \
 		curl \
 		zip \
+		gdal-bin \
+		libgdal-dev \
+		build-essential \
+		gcc \
+		gfortran \
+        locales \
+		libcurl4-gnutls-dev \
+		libfontconfig1-dev \
+		libfribidi-dev \
+		libgit2-dev \
+		libharfbuzz-dev \
+		libnetcdf-dev \
+		libnetcdff-dev \
+		libssl-dev \
+		libtiff5-dev \
+		libxml2-dev \
+		tzdata \
+	&& export CPLUS_INCLUDE_PATH=/usr/include/gdal \
+	&& export C_INCLUDE_PATH=/usr/include/gdal \
+	&& locale-gen en_US.UTF-8 \
 	&& /usr/bin/curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 
 # Stage 2 - Input Python dependencies
