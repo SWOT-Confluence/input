@@ -1,9 +1,9 @@
 # Standard imports
 from http.cookiejar import CookieJar
-import requests
 from urllib import request
 
 # Third-party imports
+import requests
 import s3fs
 
 # Application imports
