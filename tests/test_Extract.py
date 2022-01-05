@@ -1,234 +1,156 @@
 # Standard imports
-from datetime import date
-import json
-from os import listdir, scandir
 from pathlib import Path
-import pickle
 import unittest
-from unittest.mock import patch
-import geopandas
 
 # Third-party imports
-import geopandas as gpd
 import numpy as np
-import pandas as pd
-from s3fs import S3FileSystem
+from numpy.testing import assert_array_almost_equal
 
 # Local imports
-from input.Extract import Extract, calculate_d_x_a, create_reach_dict, create_node_dict, extract_node, extract_reach
+from input.Extract import Extract, calculate_d_x_a, create_node_dict, extract_passes_local
 
 class TestExtract(unittest.TestCase):
     """Tests methods and functions from Extract module."""
+    
+    REACH_ID = "74267100011"
+    NODE_LIST = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
+    
+    def test_calculate_d_x_a(self):
+        """Tests calculate_d_x_a function."""
+
+        wse = np.array([103, 102, 101, 102, 104], dtype=np.float64)
+        width = np.array([620, 713, 628, 631, 615], dtype=np.float64)
+        d_x_area = calculate_d_x_a(wse, width)
+        expected = np.array([620, 0, -628, 0, 1230], dtype=np.float64)
+        assert_array_almost_equal(expected, d_x_area)
+        
+    def test_extract_passes(self):
+        """Tests extract_passes function."""
+        
+        c_dict = extract_passes_local(7, Path(__file__).parent / "test_data")
+        expected = {
+            1: [441, 456],
+            2: [441, 456],
+            3: [441]
+        }
+        self.assertEqual(expected, c_dict)
 
     def test_append_node(self):
         """Tests append_node method."""
 
-        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
-        with open(reach, "rb") as pf:
-            reach_dict = pickle.load(pf)
-        node = Path(__file__).parent / "test_data" / "extract_node_data"
-        with open(node, "rb") as pf:
-            node_dict = pickle.load(pf)
-
-        indexes = np.array(node_dict["na"]["slope2"].index)
-        r_ids = node_dict["na"]["slope2"]["reach_id"].to_numpy()
-        df = pd.DataFrame(data=indexes, columns=["node_id"]).set_index("node_id")
-        df.insert(loc=0, column="reach_id", value=r_ids)
-        node_dict["na"]["slope2"] = df
-
-        ext = Extract()
-        ext.reach_data = reach_dict
-        ext.node_data = node_dict
-        ext.append_node("slope2", 25)
-
-        expected_slope = np.array([0.00010045794, np.nan, 0.00010173043, 9.540541e-05, np.nan, 0.00011160423, 9.765124e-05, np.nan, 0.00010503138, 8.985157e-05, np.nan, 9.279268e-05, 0.00010460104, np.nan, 0.00010018548, 0.00013338136, np.nan, 0.00010086814, 0.00011058383, np.nan, 9.262967e-05, 1.900279e-05, np.nan, 6.059819e-05, 8.804341e-05])
-        actual_slope = ext.node_data["na"]["slope2"].loc[ext.node_data["na"]["slope2"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        self.assertTrue(np.allclose(expected_slope, actual_slope, equal_nan=True))
-
-    def test_calculate_d_x_a(self):
-        """Tests calculate_d_x_a function."""
-
-        reach = Path(__file__).parent / "test_data" / "extract_reach_data"
-        with open(reach, "rb") as pf:
-            reach_dict = pickle.load(pf)
-
-        width = reach_dict["na"]["width"].loc["77449100161"].iloc[:3]
-        wse = reach_dict["na"]["wse"].loc["77449100161"].iloc[:3]
-        actual_dxa = calculate_d_x_a(wse, width)
-
-        expected_dxa = pd.Series([8.579490729, -50.358241744, 0])
-        expected_dxa.name = "77449100161"
-        pd.testing.assert_series_equal(expected_dxa, actual_dxa, atol=1e-2)
-
-    @patch.object(S3FileSystem, "ls")
-    @patch.object(Extract, "TIME_DICT")
-    def test_extract_data(self, mock_time, mock_fs):
+        # Create Extract object
+        node_ids = ["74267100010011", "74267100010021", "74267100010031", "74267100010041", "74267100010051"]
+        ext = Extract(None, "74267100011", node_ids)
+        
+        # Set and append reach data to node level data
+        ext.reach_data["slope2"] = [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05]
+        ext.append_node("slope2", len(node_ids))
+        
+        # Assert results
+        self.assertEqual((5,10), ext.node_data["slope2"].shape)
+        expected = [[4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05],
+                    [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05],
+                    [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05],
+                    [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05],
+                    [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05]]
+        assert_array_almost_equal(expected, ext.node_data["slope2"])
+        
+    def test_extract_data(self):
         """Tests extract_data method."""
         
-        # Mock API calls and time dictionary
-        mock_fs.ls.side_effect = [[Path(__file__).parent / "test_sf" / "pass249"], ["test_sf/pass249/109", "test_sf/pass249/130", "test_sf/pass249/220", "test_sf/pass249/313", "test_sf/pass249/403", "test_sf/pass249/424", "test_sf/pass249/515", "test_sf/pass249/605", "test_sf/pass249/626"]]
-        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-        mock_fs.glob.return_value = [str(reach_path)]
-        key = str(reach_path).split('/')[2]
-        mock_time = {key: date(2009,6,26)}
+        # Create object and extract data
+        Extract.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        ext = Extract(None, self.REACH_ID, self.NODE_LIST)
+        ext.extract_data_local()
         
-        df_list = []
-        with scandir(Path(__file__).parent / "test_sf" / "pass249") as entries:
-            dirs = [ entry.name for entry in entries]
+        # Assert reach-level results
+        expected = np.array([620.376586, 620.376586, 713.994386, 713.994386, 628.685508])
+        assert_array_almost_equal(expected, ext.reach_data["width"])
+        expected = np.array([103.159082, 103.159082, 102.740695, 102.740695, 103.151996])
+        assert_array_almost_equal(expected, ext.reach_data["wse"])
+        expected = np.array([4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05])
+        assert_array_almost_equal(expected, ext.reach_data["slope2"])
+        expected = np.array([0, 0, 0, 0, 0])
+        assert_array_almost_equal(expected, ext.reach_data["reach_q"])
+        expected = np.array([4.39598849, 4.39598849, -293.66660496, -293.66660496, 0])
+        assert_array_almost_equal(expected, ext.reach_data["d_x_area"])
         
-        dirs = sorted(dirs)
-        for d in dirs:
-            reach = Path(__file__).parent / "test_sf" / "pass249" / d / "riverobs_nominal_20201105" / "river_data" / f"{d}_reaches.shp"
-            df_list.append(gpd.read_file(reach))
-            node = Path(__file__).parent / "test_sf" / "pass249" / d / "riverobs_nominal_20201105" / "river_data" / f"{d}_nodes.shp"
-            df_list.append(gpd.read_file(node))
+        # Assert node-level results
+        expected = np.array([[4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05],
+                             [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05],
+                             [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05],
+                             [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05],
+                             [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05]])
+        assert_array_almost_equal(expected, ext.node_data["slope2"])
+        expected = np.array([[0.017, 0.017, 0.017, 0.017, 0.017],
+                             [0.017, 0.017, 0.017, 0.017, 0.017],
+                             [0.017, 0.017, 0.017, 0.017, 0.017],
+                             [0.017, 0.017, 0.017, 0.017, 0.017],
+                             [0.017, 0.017, 0.017, 0.017, 0.017]])
+        assert_array_almost_equal(expected, ext.node_data["slope2_u"])
+        expected = np.array([[4.39598849, 4.39598849, -293.66660496, -293.66660496, 0],
+                             [4.39598849, 4.39598849, -293.66660496, -293.66660496, 0],
+                             [4.39598849, 4.39598849, -293.66660496, -293.66660496, 0],
+                             [4.39598849, 4.39598849, -293.66660496, -293.66660496, 0],
+                             [4.39598849, 4.39598849, -293.66660496, -293.66660496, 0]])
+        assert_array_almost_equal(expected, ext.node_data["d_x_area"])
+        expected = np.array([[10.1, 10.1, 10.1, 10.1, 10.1],
+                             [10.1, 10.1, 10.1, 10.1, 10.1],
+                             [10.1, 10.1, 10.1, 10.1, 10.1],
+                             [10.1, 10.1, 10.1, 10.1, 10.1],
+                             [10.1, 10.1, 10.1, 10.1, 10.1]])
+        assert_array_almost_equal(expected, ext.node_data["d_x_area_u"])
+        expected = np.array([[619.002555, 619.002555, 605.115039, 605.115039, 582.430011],
+                             [610.590518, 610.590518, 610.341479, 610.341479, 589.098464],
+                             [630.325838, 630.325838, 585.900209, 585.900209, 610.681111],
+                             [611.293345, 611.293345, 636.617022, 636.617022, 604.398205],
+                             [615.947963, 615.947963, 617.022999, 617.022999, 600.295217]])
+        assert_array_almost_equal(expected, ext.node_data["width"])
+        expected = np.array([[103.802578, 103.802578, 103.317976, 103.317976, 102.976548],
+                             [103.795217, 103.795217, 103.30622, 103.30622, 102.967348],
+                             [103.786274, 103.786274, 103.298996, 103.298996, 102.956941],
+                             [103.795423, 103.795423, 103.304711, 103.304711, 102.966301],
+                             [103.816421, 103.816421, 103.322611, 103.322611, 102.984772]])
+        assert_array_almost_equal(expected, ext.node_data["wse"])
+        expected = np.full((5,5), fill_value=0, dtype=int)
+        assert_array_almost_equal(expected, ext.node_data["node_q"])
         
-        # Run method
-        ext = Extract()
-        with patch.object(geopandas, "read_file") as mock_gpd:
-            mock_gpd.side_effect = df_list
-            ext.extract_data(mock_fs)
-
-        # reach-level data
-        reach = ext.reach_data["na"]
-        self.assertEqual(9, len(reach["time"]))
-        
-        expected_width = np.array([79.981045, 102.228203, 131.835053, 72.060132, 73.473868, 73.547419, 74.904443, 73.93421, 87.579335])
-        np.testing.assert_array_almost_equal(expected_width, reach["width"].loc["77449100061"].to_numpy())
-
-        expected_width_u = np.array([0.939375, 1.545424, 0.967832, 0.683558, 0.666685, 0.698807, 0.735233, 0.745103, 0.950822])
-        np.testing.assert_array_almost_equal(expected_width_u, reach["width_u"].loc["77449100061"].to_numpy())
-
-        expected_wse = np.array([7.99663, 8.09615, 14.86537, 8.91665, 8.16795, 8.29723, 8.7095, 8.53303, 8.92249])
-        np.testing.assert_array_almost_equal(expected_wse, reach["wse"].loc["77449100061"].to_numpy())
-
-        expected_wse_u = np.array([0.0236, 0.01393, 0.01234, 0.03048, 0.0394, 0.02321, 0.01925, 0.05287, 0.01744])
-        np.testing.assert_array_almost_equal(expected_wse_u, reach["wse_u"].loc["77449100061"].to_numpy())
-
-        expected_slope = np.array([0.00010045794, 9.540541e-05, 9.765124e-05, 8.985157e-05, 0.00010460104, 0.00013338136, 0.00011058383, 1.900279e-05, 8.804341e-05])
-        np.testing.assert_array_almost_equal(expected_slope, reach["slope2"].loc["77449100061"].to_numpy())
-
-        expected_slope_u = np.array([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
-        np.testing.assert_array_almost_equal(expected_slope_u, reach["slope2_u"].loc["77449100061"].to_numpy())
-
-        expected_dxa_u = np.array([141508411.405, 141511250.586, 141609416.134, 141520995.491, 141510481.11, 141512313.117, 141518213.954, 141515667.59, 141521953.203])
-        np.testing.assert_array_almost_equal(expected_dxa_u, reach["d_x_area_u"].loc["77449100061"].to_numpy())
-
-        # node-level data
-        node = ext.node_data["na"]
-        self.assertEqual(9, len(reach["time"]))
-
-        expected_width = np.array([43.208299, 62.901061, 85.893091, 44.241324, 49.556449, 30.668317, 60.893438, 50.442531, 44.137341])
-        actual_width = node["width"].loc[node["width"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_width, actual_width)
-
-        expected_width_u = np.array([4.635789, 5.6747802, 4.6544526, 3.5315369, 3.5679297, 2.4884082, 5.7413614, 3.8802125, 4.4176386])
-        actual_width_u = node["width_u"].loc[node["width_u"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_width_u, actual_width_u)
-
-        expected_wse = np.array([7.64898, 7.65856, 14.55173, 8.47558, 7.55344, 8.10743, 8.22878, 7.98136, 8.5523])
-        actual_wse = node["wse"].loc[node["wse"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_wse, actual_wse)
-
-        expected_wse_u = np.array([0.2903, 0.10705, 0.08462, 0.13247, 0.24189, 0.24391, 0.10614, 0.21155, 0.16516])
-        actual_wse_u = node["wse_u"].loc[node["wse_u"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_wse_u, actual_wse_u)
-
-        actual_slope = node["slope2"].loc[node["slope2"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_slope, actual_slope)
-
-        actual_slope_u = node["slope2_u"].loc[node["slope2_u"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_slope_u, actual_slope_u)
-
-        actual_dxa_u = node["d_x_area_u"].loc[node["d_x_area_u"]["reach_id"] == "77449100061"].iloc[0,1:].to_numpy().astype(float)
-        np.testing.assert_array_almost_equal(expected_dxa_u, actual_dxa_u)
-
     def test_extract_node(self):
-        """Tests extract_node function."""
-
-        node_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
-        df1 = gpd.read_file(node_path)
+        """Tests extract_node method."""
         
-        with open(Path(__file__).parent.parent / "input" / "data" / "sac.json") as f:
-            sac_node = json.load(f)["sac_nodes"]
+        ext = Extract(None, self.REACH_ID, self.NODE_LIST)
+        ext.node_data = create_node_dict(5,5)
+        ext.extract_node(Path(__file__).parent / "test_data" /  "SWOT_L2_HR_RiverSP_node_1_441_NA_20100214T170527_20100214T170537_PGA2_03.shp", 0)
         
-        time = 0
-        node_dict = create_node_dict(sac_node)
-        with patch.object(geopandas, "read_file") as mock_gpd:
-            mock_gpd.return_value = df1
-            extract_node(node_path, node_dict, time)
+        expected = np.array([[619.002555, np.nan, np.nan, np.nan, np.nan],
+                             [610.590518, np.nan, np.nan, np.nan, np.nan],
+                             [630.325838, np.nan, np.nan, np.nan, np.nan],
+                             [611.293345, np.nan, np.nan, np.nan, np.nan],
+                             [615.947963, np.nan, np.nan, np.nan, np.nan]])
+        assert_array_almost_equal(expected, ext.node_data["width"])
         
-        expected_reach = np.full((49), fill_value="77449100061")
-        actual_reach = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"]["reach_id"].to_numpy()
-        np.testing.assert_array_equal(expected_reach, actual_reach)
-
-        expected_node = np.array(list(sac_node.keys()))
-        actual_node = np.array(node_dict["wse"].index)
-        np.testing.assert_array_equal(expected_node, actual_node)
-
-        expected_width = np.array([43.208299, 69.361156, 76.104040, 92.461620, 76.389673])
-        actual_width = node_dict["width"].loc[node_dict["width"]["reach_id"] == "77449100061"].iloc[:5][0].to_numpy()
-        np.testing.assert_array_almost_equal(expected_width, actual_width)
+        expected = np.array([[103.802578, np.nan, np.nan, np.nan, np.nan],
+                             [103.795217, np.nan, np.nan, np.nan, np.nan],
+                             [103.786274, np.nan, np.nan, np.nan, np.nan],
+                             [103.795423, np.nan, np.nan, np.nan, np.nan],
+                             [103.816421, np.nan, np.nan, np.nan, np.nan]])
+        assert_array_almost_equal(expected, ext.node_data["wse"])
         
-        expected_wse = np.array([7.64898, 7.42904, 7.48903, 7.49127, 7.71399])
-        actual_wse = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"].iloc[:5][0].to_numpy()
-        np.testing.assert_array_almost_equal(expected_wse, actual_wse)
-
-        node_path = Path(__file__).parent / "test_sf" / "pass249" / "130"/ "riverobs_nominal_20201105" / "river_data" / "nodes.shp"
-        df2 = gpd.read_file(node_path)
-        time = 1
-        with patch.object(geopandas, "read_file") as mock_gpd:
-            mock_gpd.return_value = df2
-            extract_node(node_path, node_dict, time)
-
-        expected_width = np.array([43.208299, 62.901061, 69.361156, 58.018872, 76.104040, 63.814723, 92.461620, 76.794963, 76.389673, 90.156724])
-        expected_width = np.reshape(expected_width, (5,2))
-        actual_width = node_dict["width"].loc[node_dict["width"]["reach_id"] == "77449100061"].loc[:,0:].iloc[:5].to_numpy()
-        np.testing.assert_array_almost_equal(expected_width, actual_width)
-
-        expected_wse = np.array([7.64898, 7.65856, 7.42904, 7.56269, 7.48903, 7.48027, 7.49127, 7.78397, 7.71399, 7.66650])
-        expected_wse = np.reshape(expected_wse, (5,2))
-        actual_wse = node_dict["wse"].loc[node_dict["wse"]["reach_id"] == "77449100061"].loc[:,0:].iloc[:5].to_numpy()
-        np.testing.assert_array_almost_equal(expected_wse, actual_wse)
-
-    @patch.object(Extract, "TIME_DICT")
-    def test_extract_reach(self, mock_time):
-        """Tests extract_reach funtion."""
-
-        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "109"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-        df1 = gpd.read_file(reach_path)
-
-        key = str(reach_path).split('/')[2]
-        mock_time = {key: date(2009,6,26)}
+        expected = np.array([[0, -999, -999, -999, -999],
+                             [0, -999, -999, -999, -999],
+                             [0, -999, -999, -999, -999],
+                             [0, -999, -999, -999, -999],
+                             [0, -999, -999, -999, -999]])
+        assert_array_almost_equal(expected, ext.node_data["node_q"])
         
-        with open(Path(__file__).parent.parent / "input" / "data" / "sac.json") as f:
-            sac_reach = json.load(f)["sac_reaches"]
+    def test_extract_reach(self):
+        """Tests extract_reach method."""
         
-        time = 0
-        reach_dict = create_reach_dict(sac_reach)
-        with patch.object(geopandas, "read_file") as mock_gpd:
-            mock_gpd.return_value = df1
-            extract_reach(str(reach_path), reach_dict, time)
+        ext = Extract(None, self.REACH_ID, self.NODE_LIST)
+        ext.extract_reach(Path(__file__).parent / "test_data" / "SWOT_L2_HR_RiverSP_reach_1_441_NA_20100214T170530_20100215T060108_PGA2_03.shp")
         
-        self.assertAlmostEqual(79.981045, reach_dict["width"].loc["77449100061"].iloc[0])
-        self.assertAlmostEqual(7.99663, reach_dict["wse"].loc["77449100061"].iloc[0])
-        self.assertAlmostEqual( 0.00010045794, reach_dict["slope2"].loc["77449100061"].iloc[0], places=7)
-
-        reach_path = Path(__file__).parent / "test_sf" / "pass249" / "130"/ "riverobs_nominal_20201105" / "river_data" / "reaches.shp"
-        df2 = gpd.read_file(reach_path)
-        time = 1
-        with patch.object(geopandas, "read_file") as mock_gpd:
-            mock_gpd.return_value = df2
-            extract_reach(str(reach_path), reach_dict, time)
-
-        expected_width = pd.Series([79.981045, 102.228203])
-        expected_width.name = "77449100061"
-        pd.testing.assert_series_equal(expected_width, reach_dict["width"].loc["77449100061"])
-
-        expected_wse = pd.Series([7.99663, 8.09615])
-        expected_wse.name = "77449100061"
-        pd.testing.assert_series_equal(expected_wse, reach_dict["wse"].loc["77449100061"])
-
-        expected_slope = pd.Series([0.00010045794, 9.540541e-05])
-        expected_slope.name = "77449100061"
-        pd.testing.assert_series_equal(expected_slope, reach_dict["slope2"].loc["77449100061"])
+        self.assertAlmostEqual([620.376586], ext.reach_data["width"])
+        self.assertAlmostEqual([103.159082], ext.reach_data["wse"])
+        self.assertAlmostEqual([0.000045], ext.reach_data["slope2"])
+        self.assertAlmostEqual([0], ext.reach_data["d_x_area"])
+        self.assertAlmostEqual([0], ext.reach_data["reach_q"])
