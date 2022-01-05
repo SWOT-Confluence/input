@@ -22,13 +22,11 @@ extract_passes(continent)
 # Standard imports
 from datetime import date
 import glob
-import json
 from pathlib import Path
 
 # Third-party imports
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 
 # Constants
 CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
