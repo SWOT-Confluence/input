@@ -7,31 +7,46 @@ formats them as one NetCDF per reach.
 
 # Standard imports
 from datetime import datetime
+import json
+import os
 from pathlib import Path
+import sys
 
 # Local imports
 from input.Extract import Extract
 from input.Login import Login
 from input.Write import Write
 
-OUTPUT = Path("/mnt/data")
+DATA = Path("/mnt/data")
 
 def main():
     
-    # Login
-    print("Logging into AWS infrastructure.")
-    login = Login()
-    login.login()
+    # Store command line arguments
+    try:
+        reach_node_json = sys.argv[1]
+    except IndexError:
+        reach_node_json = "reach_node.json"
+
+    # Get continent to run on
+    # index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+    index = 196
+    with open(DATA / reach_node_json) as json_file:
+        reach_data = json.load(json_file)[index]
+    
+    # # Login
+    # print("Logging into AWS infrastructure.")
+    # login = Login()
+    # login.login()
 
     # Extract SWOT data
     print("Extracting SWOT data.")
-    ext = Extract()
-    ext.extract_data(login.confluence_fs)
+    ext = Extract(None, reach_data[0], reach_data[1])
+    ext.extract_data_local()
     
     # Write SWOT data
     print("Writing SWOT data to NetCDF.")
-    write = Write(ext.node_data, ext.reach_data, OUTPUT)
-    write.write_data()
+    write = Write(ext.node_data, ext.reach_data, ext.obs_times, DATA)
+    write.write_data(reach_data[0], reach_data[1])
     
     print("Input operations complete.")
 
