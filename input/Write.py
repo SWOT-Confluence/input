@@ -2,7 +2,7 @@
 from datetime import datetime
 
 # Third-party imports
-from netCDF4 import Dataset
+from netCDF4 import Dataset, stringtochar
 import numpy as np
 
 class Write:
@@ -13,7 +13,7 @@ class Write:
 
     Attributes
     ----------
-    continents: dict
+    CONTINENTS: dict
         dictionary of continent IDs (keys) and continent names (values)
     FLOAT_FILL: float
         value to use when missing or invalid data is encountered for float
@@ -21,6 +21,8 @@ class Write:
         value to use when missing or invalid data is encountered for integers
     node_data: dict
         dictionary with continent keys and dataframe value of SWOT node data
+    obs_times: list
+            list of string cycle/pass identifiers
     output_dir: Path
         path to output directory on EFS 'input' mount
     reach_data: dict
@@ -42,58 +44,56 @@ class Write:
         writes reach level data to NetCDF file in reach group
     """
 
+    CONTINENTS = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 7: "NA", 8: "NA", 9:"NA" }
     FLOAT_FILL = -999999999999
     INT_FILL = -999
 
-    def __init__(self, node_data, reach_data, output_dir):
+    def __init__(self, node_data, reach_data, obs_times, output_dir):
         """
         Parameters
         ----------
         node_data: dict
             dictionary with continent keys and dataframe value of SWOT node data
-        output_dir: Path
-            path to output directory on EFS 'input' mount
         reach_data: dict
             dictionary with continent keys and dataframe value of SWOT reach data
+        obs_times: list
+            list of string cycle/pass identifiers
+        output_dir: Path
+            path to output directory on EFS 'input' mount
         """
-        self.continents = { "af": "Africa", "eu": "Europe and Middle East",
-            "si": "Siberia", "as": "Central and Southeast Asia",
-            "au": "Australia and Oceania", "sa": "South America",
-            "na": "North America and Caribbean", "ar": "North American Arctic",
-            "gr": "Greenland" }
+        
         self.node_data = node_data
+        self.obs_times = obs_times
         self.output_dir = output_dir
         self.reach_data = reach_data
 
-    def __create_dimensions(self, nx, nt, dataset):
+    def __create_dimensions(self, dataset, nx):
         """Create dimensions and coordinate variables for dataset.
         
         Parameters
         ----------
-        nx: range
-            range of number of nodes
-        nt: list
-            list of time steps
         dataset: netCDF4.Dataset
             dataset to write node level data to
+        nx: int
+         integer number of nodes
         """
 
          # Create dimension(s)
-        dataset.createDimension("nt", len(nt))
-        dataset.createDimension("nx", len(nx))
+        dataset.createDimension("nt", len(self.obs_times))
+        dataset.createDimension("nx", nx)
 
         # Create coordinate variable(s)
         nt_v = dataset.createVariable("nt", "i4", ("nt",))
-        nt_v.units = "day"
+        nt_v.units = "pass"
         nt_v.long_name = "time steps"
-        nt_v[:] = nt
+        nt_v[:] = range(len(self.obs_times))
 
         nx_v = dataset.createVariable("nx", "i4", ("nx",))
         nx_v.units = "node"
         nx_v.long_name = "number of nodes"
-        nx_v[:] = nx
+        nx_v[:] = range(1, nx + 1)
 
-    def __define_global_attrs(self, dataset, reach_id, cont):
+    def __define_global_attrs(self, dataset, reach_id):
         """Set global attributes for NetCDF dataset file.
 
         Currently sets title, history, and continent.
@@ -104,62 +104,66 @@ class Write:
             netCDF4 dataset to set global attirbutes for
         reach_id: int
            unique reach identifier
-        cont: str
-            continent that data was obtained for
-        
-        ## TODO:
-        - cycle number, pass number, time_coverage (range)
         """
 
         dataset.title = f"SWOT Data for Reach {reach_id}"
         dataset.reach_id = int(reach_id)
         dataset.history = datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S")
-        dataset.continent = self.continents[cont]
+        dataset.continent = self.CONTINENTS[int(str(reach_id)[0])]
 
-    def write_data(self):
+    def write_data(self, reach_id, node_ids):
         """Writes node and reach level SWOT data to NetCDF format.
         
-        Files are placed in a temporary directory.
-
-        ## TODO
-        - remove if statement testing for None as all keys should be populated
+        TODO:
+        - Figure out maximum cycle/pass length.
+        
+        Parameters
+        ----------
+        reach_id: str
+            string reach identifier
+        node_ids: list
+            list of string node identifiers
         """
 
-        for key in self.continents.keys():
-            if self.reach_data[key] and self.node_data[key]:
-                reach_ids = list(self.reach_data[key]["width"].index)
-                for reach_id in reach_ids:
-                    # NetCDF4 dataset
-                    reach_file = self.output_dir / "swot" / f"{reach_id}_SWOT.nc"
-                    dataset = Dataset(reach_file, 'w', format="NETCDF4")
-                    self.__define_global_attrs(dataset, reach_id, key)
-                    reach_group = dataset.createGroup("reach")
-                    node_group = dataset.createGroup("node")
+        # NetCDF4 dataset
+        reach_file = self.output_dir / "swot" / f"{reach_id}_SWOT.nc"
+        dataset = Dataset(reach_file, 'w', format="NETCDF4")
+        self.__define_global_attrs(dataset, reach_id)
 
-                    # Dimension and data
-                    nt = self.reach_data[key]["time"]
-                    nx = range(1, len(self.node_data[key]["width"].loc[self.node_data[key]["width"]["reach_id"] == reach_id].index) + 1)
-                    self.__create_dimensions(nx, nt, dataset)
-
-                    # Reach and node data
-                    self.__write_reach_vars(self.reach_data[key], reach_group, reach_id)
-                    self.__write_node_vars(self.node_data[key], node_group, reach_id)
-
-                    dataset.close()
+        # Dimension and data
+        self.__create_dimensions(dataset, len(node_ids))
         
-    def __write_node_vars(self, data, dataset, reach_id):
+        # Global observation variable
+        dataset.createDimension('nchars', 10)
+        obs = dataset.createVariable("observations", "S1", ("nt", "nchars"))
+        obs.units = "pass"
+        obs.long_name = "cycle/pass observations"
+        obs.comment = "A list of cycle and pass numeric identifiers that " \
+            + "identify each reach and node observation. An array element " \
+            + "is comprised of 'cycle/pass' as a string value."
+        obs[:] = stringtochar(np.array(self.obs_times, dtype="S10"))
+
+        # Reach and node data
+        reach_group = dataset.createGroup("reach")
+        self.__write_reach_vars(reach_group, reach_id)
+        node_group = dataset.createGroup("node")
+        self.__write_node_vars(node_group, reach_id, node_ids)
+
+        dataset.close()
+        
+    def __write_node_vars(self, dataset, reach_id, node_ids):
         """Create and write reach-level variables to NetCDF4 dataset.
 
         TODO:
         - d_x_area_u max value is larger than PDD max value documentation
         
         Parameters:
-        data: Pandas.DataFrame
-            data frame that hold reach-level SWOT data
         dataset: netCDF4.Dataset
             reach-level dataset to write variables to
-        reach_id: int
+        reach_id: str
             unique reach identifier value
+        node_ids: list
+            list of string node identifiers
         """
 
         reach_id_v = dataset.createVariable("reach_id", "i8")
@@ -174,7 +178,21 @@ class Write:
         node_id.comment = "Unique node identifier from the prior river " \
             + "database. The format of the identifier is CBBBBBRRRRNNNT, " \
             + "where C=continent, B=basin, R=reach, N=node, T=type."
-        node_id[:] = np.array(data["width"].loc[data["width"]["reach_id"] == reach_id].index, dtype=int)
+        node_id[:] = np.array(node_ids, dtype=np.int64)
+        
+        time = dataset.createVariable("time", "f8", ("nx", "nt"))
+        time.long_name = "time (UTC)"
+        time.calendar = "gregorian"
+        time.tai_utc_difference = "[value of TAI-UTC at time of first record]"
+        time.leap_second = "YYYY-MM-DD hh:mm:ss"
+        time.units = "seconds since 2000-01-01 00:00:00.000"
+        time.comment = "Time of measurement in seconds in the UTC time " \
+            + "scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is " \
+            + "the difference between TAI and UTC reference time (seconds) " \
+            + "for the first measurement of the data set. If a leap second " \
+            + "occurs within the data set, the metadata leap_second is set " \
+            + "to the UTC time at which the leap second occurs."
+        time[:] = self.node_data["time"]
 
         dxa = dataset.createVariable("d_x_area", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -183,7 +201,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database. Extracted from reach-level and appended to node."
-        dxa[:] = np.nan_to_num(data["d_x_area"].loc[data["d_x_area"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        dxa[:] = np.nan_to_num(self.node_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -192,7 +210,7 @@ class Write:
         dxa_u.valid_min = 0
         dxa_u.valid_max = 1000000000    # TODO fix to match PDD
         dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area. Extracted from reach-level and appended to node."
-        dxa_u[:] = np.nan_to_num(data["d_x_area_u"].loc[data["d_x_area_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        dxa_u[:] = np.nan_to_num(self.node_data["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -201,7 +219,7 @@ class Write:
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
         slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower. Extracted from reach-level and appended to node."
-        slope2[:] = np.nan_to_num(data["slope2"].loc[data["slope2"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        slope2[:] = np.nan_to_num(self.node_data["slope2"], copy=True, nan=self.FLOAT_FILL)
 
         slope2_u = dataset.createVariable("slope2_u", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -210,7 +228,7 @@ class Write:
         slope2_u.valid_min = 0
         slope2_u.valid_max = 0.1
         slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit. Extracted from reach-level and appended to node."
-        slope2_u[:] = np.nan_to_num(data["slope2_u"].loc[data["slope2_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        slope2_u[:] = np.nan_to_num(self.node_data["slope2_u"], copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -219,7 +237,7 @@ class Write:
         width.valid_min = 0.0
         width.valid_max = 100000
         width.comment = "Node width."
-        width[:] = np.nan_to_num(data["width"].loc[data["width"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        width[:] = np.nan_to_num(self.node_data["width"], copy=True, nan=self.FLOAT_FILL)
 
         width_u = dataset.createVariable("width_u", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -228,7 +246,7 @@ class Write:
         width_u.valid_min = 0
         width_u.valid_max = 10000
         width_u.comment = "Total one-sigma uncertainty (random and systematic) in the node width."
-        width_u[:] = np.nan_to_num(data["width_u"].loc[data["width_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        width_u[:] = np.nan_to_num(self.node_data["width_u"], copy=True, nan=self.FLOAT_FILL)
 
         wse = dataset.createVariable("wse", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
         wse.long_name = "water surface elevation with respect to the geoid"
@@ -236,7 +254,7 @@ class Write:
         wse.valid_min = -1000
         wse.valid_max = 100000
         wse.comment = "Fitted node water surface elevation, relative to the provided model of the geoid (geoid_hght), with all corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
-        wse[:] = np.nan_to_num(data["wse"].loc[data["wse"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        wse[:] = np.nan_to_num(self.node_data["wse"], copy=True, nan=self.FLOAT_FILL)
         
         wse_u = dataset.createVariable("wse_u", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
         wse_u.long_name = "total uncertainty in the water surface elevation"
@@ -244,7 +262,7 @@ class Write:
         wse_u.valid_min = 0.0
         wse_u.valid_max = 999999
         wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the node WSE, including uncertainties of corrections, and variation about the fit."
-        wse_u[:] = np.nan_to_num(data["wse_u"].loc[data["wse_u"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        wse_u[:] = np.nan_to_num(self.node_data["wse_u"], copy=True, nan=self.FLOAT_FILL)
 
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
             fill_value=self.INT_FILL)
@@ -258,7 +276,7 @@ class Write:
         node_q.comment = "Summary quality indicator for the node " \
             + "measurement. Values of 0 and 1 indicate nominal and " \
             + "off-nominal measurements."
-        node_q[:] = np.nan_to_num(data["node_q"].loc[data["node_q"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
+        node_q[:] = np.nan_to_num(self.node_data["node_q"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -267,7 +285,7 @@ class Write:
         dark_frac.valid_min = 0
         dark_frac.valid_max = 1
         dark_frac.comment = "Fraction of node area_total covered by dark water."
-        dark_frac[:] = np.nan_to_num(data["dark_frac"].loc[data["dark_frac"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.FLOAT_FILL)
+        dark_frac[:] = np.nan_to_num(self.node_data["dark_frac"], copy=True, nan=self.FLOAT_FILL)
 
         ice_clim_f = dataset.createVariable("ice_clim_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -285,7 +303,7 @@ class Write:
             + "that the node is likely not ice covered, may or may not be " \
             + "partially or fully ice covered, and likely fully ice covered, " \
             + "respectively."
-        ice_clim_f[:] = np.nan_to_num(data["ice_clim_f"].loc[data["ice_clim_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
+        ice_clim_f[:] = np.nan_to_num(self.node_data["ice_clim_f"], copy=True, nan=self.INT_FILL)
 
         ice_dyn_f = dataset.createVariable("ice_dyn_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -301,7 +319,7 @@ class Write:
             + "based on analysis of external satellite optical data. Values " \
             + "of 0, 1, and 2 indicate that the node is not ice covered, " \
             + "partially ice covered, and fully ice covered, respectively."
-        ice_dyn_f[:] = np.nan_to_num(data["ice_dyn_f"].loc[data["ice_dyn_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
+        ice_dyn_f[:] = np.nan_to_num(self.node_data["ice_dyn_f"], copy=True, nan=self.INT_FILL)
 
         partial_f = dataset.createVariable("partial_f", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -315,7 +333,7 @@ class Write:
             + "coverage. The flag is 0 if at least 10 pixels have a valid " \
             + "WSE measurement; the flag is 1 otherwise and node-level " \
             + "quantities are not computed."
-        partial_f[:] = np.nan_to_num(data["partial_f"].loc[data["partial_f"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
+        partial_f[:] = np.nan_to_num(self.node_data["partial_f"], copy=True, nan=self.INT_FILL)
 
         n_good_pix = dataset.createVariable("n_good_pix", "i4", ("nx", "nt"),
             fill_value = self.INT_FILL)
@@ -325,7 +343,7 @@ class Write:
         n_good_pix.valid_max = 100000
         n_good_pix.comment = "Number of pixels assigned to the node that " \
             + "have a valid node WSE."
-        n_good_pix[:] = np.nan_to_num(data["n_good_pix"].loc[data["n_good_pix"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)
+        n_good_pix[:] = np.nan_to_num(self.node_data["n_good_pix"], copy=True, nan=self.INT_FILL)
 
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
@@ -336,20 +354,18 @@ class Write:
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
-        xovr_cal_q[:] = np.nan_to_num(data["xovr_cal_q"].loc[data["xovr_cal_q"]["reach_id"] == reach_id].loc[:,0:].to_numpy().astype(float), copy=True, nan=self.INT_FILL)  
+        xovr_cal_q[:] = np.nan_to_num(self.node_data["xovr_cal_q"], copy=True, nan=self.INT_FILL)  
 
-    def __write_reach_vars(self, data, dataset, reach_id):
+    def __write_reach_vars(self, dataset, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
         
         TODO:
         - d_x_area_u max value is larger than PDD max value documentation
 
         Parameters:
-        data: Pandas.DataFrame
-            data frame that hold reach-level SWOT data
         dataset: netCDF4.Dataset
             reach-level dataset to write variables to
-        reach_id: int
+        reach_id: str
             unique reach identifier value
         """
 
@@ -360,6 +376,20 @@ class Write:
             + "C=continent, B=basin, R=reach, T=type."
         reach_id_v.assignValue(int(reach_id))
         
+        time = dataset.createVariable("time", "f8", ("nt",))
+        time.long_name = "time (UTC)"
+        time.calendar = "gregorian"
+        time.tai_utc_difference = "[value of TAI-UTC at time of first record]"
+        time.leap_second = "YYYY-MM-DD hh:mm:ss"
+        time.units = "seconds since 2000-01-01 00:00:00.000"
+        time.comment = "Time of measurement in seconds in the UTC time " \
+            + "scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is " \
+            + "the difference between TAI and UTC reference time (seconds) " \
+            + "for the first measurement of the data set. If a leap second " \
+            + "occurs within the data set, the metadata leap_second is set " \
+            + "to the UTC time at which the leap second occurs."
+        time[:] = self.reach_data["time"]
+        
         dxa = dataset.createVariable("d_x_area", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
         dxa.long_name = "change in cross-sectional area"
@@ -367,7 +397,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database."
-        dxa[:] = np.nan_to_num(data["d_x_area"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        dxa[:] = np.nan_to_num(self.reach_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -376,7 +406,7 @@ class Write:
         dxa_u.valid_min = 0
         dxa_u.valid_max = 1000000000    # TODO fix to match PDD
         dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area."
-        dxa_u[:] = np.nan_to_num(data["d_x_area_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        dxa_u[:] = np.nan_to_num(self.reach_data["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -385,7 +415,7 @@ class Write:
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
         slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower."
-        slope2[:] = np.nan_to_num(data["slope2"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        slope2[:] = np.nan_to_num(self.reach_data["slope2"], copy=True, nan=self.FLOAT_FILL)
 
         slope2_u = dataset.createVariable("slope2_u", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -394,8 +424,8 @@ class Write:
         slope2_u.valid_min = 0
         slope2_u.valid_max = 0.1
         slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit."
-        slope2_u[:] = np.nan_to_num(data["slope2_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
-
+        slope2_u[:] = np.nan_to_num(self.reach_data["slope2_u"], copy=True, nan=self.FLOAT_FILL)
+        
         width = dataset.createVariable("width", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
         width.long_name = "reach width"
@@ -403,7 +433,7 @@ class Write:
         width.valid_min = 0.0
         width.valid_max = 100000
         width.comment = "Reach width."
-        width[:] = np.nan_to_num(data["width"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        width[:] = np.nan_to_num(self.reach_data["width"], copy=True, nan=self.FLOAT_FILL)
 
         width_u = dataset.createVariable("width_u", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
@@ -412,7 +442,7 @@ class Write:
         width_u.valid_min = 0
         width_u.valid_max = 100000
         width_u.comment = "Total one-sigma uncertainty (random and systematic) in the reach width."
-        width_u[:] = np.nan_to_num(data["width_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        width_u[:] = np.nan_to_num(self.reach_data["width_u"], copy=True, nan=self.FLOAT_FILL)
 
         wse = dataset.createVariable("wse", "f8", ("nt",), fill_value=self.FLOAT_FILL)
         wse.long_name = "water surface elevation with respect to the geoid"
@@ -420,7 +450,7 @@ class Write:
         wse.valid_min = -1000
         wse.valid_max = 100000
         wse.comment = "Fitted reach water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
-        wse[:] = np.nan_to_num(data["wse"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        wse[:] = np.nan_to_num(self.reach_data["wse"], copy=True, nan=self.FLOAT_FILL)
 
         wse_u = dataset.createVariable("wse_u", "f8", ("nt",), fill_value=self.FLOAT_FILL)
         wse_u.long_name = "total uncertainty in the water surface elevation"
@@ -428,7 +458,7 @@ class Write:
         wse_u.valid_min = 0.0
         wse_u.valid_max = 999999
         wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the reach WSE, including uncertainties of corrections, and variation about the fit."
-        wse_u[:] = np.nan_to_num(data["wse_u"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        wse_u[:] = np.nan_to_num(self.reach_data["wse_u"], copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -442,7 +472,7 @@ class Write:
         reach_q.comment = "Summary quality indicator for the reach " \
             + "measurement. Values of 0 and 1 indicate nominal (good) " \
             + "and off-nominal (suspect) measurements."
-        reach_q[:] = np.nan_to_num(data["reach_q"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
+        reach_q[:] = np.nan_to_num(self.reach_data["reach_q"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -451,7 +481,7 @@ class Write:
         dark_frac.valid_min = -1000
         dark_frac.valid_max = 10000
         dark_frac.comment = "Fraction of reach area_total covered by dark water."
-        dark_frac[:] = np.nan_to_num(data["dark_frac"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        dark_frac[:] = np.nan_to_num(self.reach_data["dark_frac"], copy=True, nan=self.FLOAT_FILL)
 
         ice_clim_f = dataset.createVariable("ice_clim_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -469,7 +499,7 @@ class Write:
             + "that the reach is likely not ice covered, may or may not be " \
             + "partially or fully ice covered, and likely fully ice covered, " \
             + "respectively."
-        ice_clim_f[:] = np.nan_to_num(data["ice_clim_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
+        ice_clim_f[:] = np.nan_to_num(self.reach_data["ice_clim_f"], copy=True, nan=self.INT_FILL)
 
         ice_dyn_f = dataset.createVariable("ice_dyn_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -485,7 +515,7 @@ class Write:
             + "based on analysis of external satellite optical data. Values " \
             + "of 0, 1, and 2 indicate that the reach is not ice covered, " \
             + "partially ice covered, and fully ice covered, respectively."
-        ice_dyn_f[:] = np.nan_to_num(data["ice_dyn_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
+        ice_dyn_f[:] = np.nan_to_num(self.reach_data["ice_dyn_f"], copy=True, nan=self.INT_FILL)
 
         partial_f = dataset.createVariable("partial_f", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -499,7 +529,7 @@ class Write:
             + "coverage. The flag is 0 if at least half the nodes of the " \
             + "reach have valid WSE measurements; the flag is 1 otherwise " \
             + "and reach-level quantities are not computed."
-        partial_f[:] = np.nan_to_num(data["partial_f"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
+        partial_f[:] = np.nan_to_num(self.reach_data["partial_f"], copy=True, nan=self.INT_FILL)
 
         n_good_nod = dataset.createVariable("n_good_nod", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -511,7 +541,7 @@ class Write:
         n_good_nod.comment = "Number of nodes in the reach that have " \
             + "a valid node WSE. Note that the total number of nodes " \
             + "from the prior river database is given by p_n_nodes."
-        n_good_nod[:] = np.nan_to_num(data["n_good_nod"].loc[reach_id].to_numpy(), copy=True, nan=self.INT_FILL)
+        n_good_nod[:] = np.nan_to_num(self.reach_data["n_good_nod"], copy=True, nan=self.INT_FILL)
 
         obs_frac_n = dataset.createVariable("obs_frac_n", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -522,7 +552,7 @@ class Write:
         obs_frac_n.comment = "Fraction of nodes (n_good_nod/p_n_nodes) " \
             + "in the reach that have a valid node WSE. The value is " \
             + "between 0 and 1."
-        obs_frac_n[:] = np.nan_to_num(data["obs_frac_n"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        obs_frac_n[:] = np.nan_to_num(self.reach_data["obs_frac_n"], copy=True, nan=self.INT_FILL)
 
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
@@ -533,4 +563,4 @@ class Write:
         xovr_cal_q.valid_min = 0
         xovr_cal_q.valid_max = 1
         xovr_cal_q.comment = "Quality of the cross-over calibration."
-        xovr_cal_q[:] = np.nan_to_num(data["xovr_cal_q"].loc[reach_id].to_numpy(), copy=True, nan=self.FLOAT_FILL)
+        xovr_cal_q[:] = np.nan_to_num(self.reach_data["xovr_cal_q"], copy=True, nan=self.INT_FILL)
