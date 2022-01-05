@@ -4,7 +4,7 @@ import unittest
 
 # Third-party imports
 import numpy as np
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 # Local imports
 from input.Extract import Extract, calculate_d_x_a, create_node_dict, extract_passes_local
@@ -114,6 +114,10 @@ class TestExtract(unittest.TestCase):
         assert_array_almost_equal(expected, ext.node_data["wse"])
         expected = np.full((5,5), fill_value=0, dtype=int)
         assert_array_almost_equal(expected, ext.node_data["node_q"])
+        
+        # Time data
+        expected = ["1/441", "1/456", "2/441", "2/456", "3/441"]
+        assert_array_equal(expected, ext.obs_times)
         
     def test_extract_node(self):
         """Tests extract_node method."""
