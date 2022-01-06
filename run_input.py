@@ -28,20 +28,19 @@ def main():
         reach_node_json = "reach_node.json"
 
     # Get continent to run on
-    # index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
-    index = 196
+    index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
     with open(DATA / reach_node_json) as json_file:
         reach_data = json.load(json_file)[index]
     
-    # # Login
-    # print("Logging into AWS infrastructure.")
-    # login = Login()
-    # login.login()
+    # Login
+    print("Logging into AWS infrastructure.")
+    login = Login()
+    login.login()
 
     # Extract SWOT data
     print("Extracting SWOT data.")
-    ext = Extract(None, reach_data[0], reach_data[1])
-    ext.extract_data_local()
+    ext = Extract(login.confluence_fs, reach_data[0], reach_data[1])
+    ext.extract_data()
     
     # Write SWOT data
     print("Writing SWOT data to NetCDF.")

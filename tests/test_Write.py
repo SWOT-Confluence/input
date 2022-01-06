@@ -1,12 +1,16 @@
 # Standard imports
+import glob
 from pathlib import Path
 from shutil import rmtree
 import unittest
+from unittest.mock import patch
 
 # Third-party imports
+import geopandas as gpd
 from netCDF4 import Dataset, chartostring
 import numpy as np
 from numpy.testing import assert_array_almost_equal, assert_array_equal
+from s3fs import S3FileSystem
 
 # Local imports
 from input.Extract import Extract
@@ -14,20 +18,38 @@ from input.Write import Write
 
 class TestWrite(unittest.TestCase):
     """Tests methods from Write class."""
+    
+    REACH_ID = "74267100011"
+    NODE_LIST = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
 
-    def test_write_data(self):
+    @patch.object(S3FileSystem, "glob")
+    def test_write_data(self, mock_fs):
         """Tests write_data method."""
         
         # Obtain required data
-        node_list = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
-        Extract.LOCAL_INPUT = swot_dir = Path(__file__).parent / "test_data"
-        ext = Extract(None, "74267100011", node_list)
-        ext.extract_data_local()
+        parent = Path(__file__).parent / "test_data"
+        reach_files = [Path(c_file).name for c_file in glob.glob(str(parent / f"*reach*.shp"))]
+        reach_files.sort()
+        reach_dfs = [gpd.read_file(str(parent / reach_file)) for reach_file in reach_files]
+        
+        node_files = [Path(c_file).name for c_file in glob.glob(str(parent / f"*node*.shp"))]
+        node_files.sort()
+        node_dfs = [gpd.read_file(str(parent / node_file)) for node_file in node_files]
+        
+        file_list = [reach_files] + reach_files + node_files
+        df_list = reach_dfs + node_dfs  
+        Extract.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        mock_fs.glob.side_effect = file_list
+        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        with patch.object(gpd, "read_file") as mock_gpd:
+            mock_gpd.side_effect = df_list
+            ext.extract_data()
 
         # Set up I/O, create Write object and execute function
         swot_dir = Path(__file__).parent / "swot"
         if not swot_dir.exists(): swot_dir.mkdir(parents=True, exist_ok=True)
         write = Write(ext.node_data, ext.reach_data, ext.obs_times, swot_dir.parent)
+        node_list = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
         write.write_data("74267100011", node_list)
         
         # Assert file results
