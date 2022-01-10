@@ -180,7 +180,8 @@ class Write:
             + "where C=continent, B=basin, R=reach, N=node, T=type."
         node_id[:] = np.array(node_ids, dtype=np.int64)
         
-        time = dataset.createVariable("time", "f8", ("nx", "nt"))
+        time = dataset.createVariable("time", "f8", ("nx", "nt"), 
+            fill_value=self.FLOAT_FILL)
         time.long_name = "time (UTC)"
         time.calendar = "gregorian"
         time.tai_utc_difference = "[value of TAI-UTC at time of first record]"
@@ -192,7 +193,8 @@ class Write:
             + "for the first measurement of the data set. If a leap second " \
             + "occurs within the data set, the metadata leap_second is set " \
             + "to the UTC time at which the leap second occurs."
-        time[:] = self.node_data["time"]
+        self.node_data["time"][np.isclose(self.node_data["time"], -999999999999)] = self.FLOAT_FILL    # sac-specific
+        time[:] = np.nan_to_num(self.node_data["time"], copy=True, nan=self.FLOAT_FILL)
 
         dxa = dataset.createVariable("d_x_area", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -201,6 +203,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database. Extracted from reach-level and appended to node."
+        self.node_data["d_x_area"][np.isclose(self.node_data["d_x_area"], 1.00000000000881e+24)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(self.node_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nx", "nt"),
@@ -343,6 +346,7 @@ class Write:
         n_good_pix.valid_max = 100000
         n_good_pix.comment = "Number of pixels assigned to the node that " \
             + "have a valid node WSE."
+        self.node_data["n_good_pix"][self.node_data["n_good_pix"] == -99999999] = self.INT_FILL    # sac-specific
         n_good_pix[:] = np.nan_to_num(self.node_data["n_good_pix"], copy=True, nan=self.INT_FILL)
 
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nx", "nt"),
@@ -376,7 +380,8 @@ class Write:
             + "C=continent, B=basin, R=reach, T=type."
         reach_id_v.assignValue(int(reach_id))
         
-        time = dataset.createVariable("time", "f8", ("nt",))
+        time = dataset.createVariable("time", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
         time.long_name = "time (UTC)"
         time.calendar = "gregorian"
         time.tai_utc_difference = "[value of TAI-UTC at time of first record]"
@@ -388,7 +393,8 @@ class Write:
             + "for the first measurement of the data set. If a leap second " \
             + "occurs within the data set, the metadata leap_second is set " \
             + "to the UTC time at which the leap second occurs."
-        time[:] = self.reach_data["time"]
+        self.reach_data["time"][np.isclose(self.reach_data["time"], -999999999999)] = self.FLOAT_FILL    # sac-specific
+        time[:] = np.nan_to_num(self.reach_data["time"], copy=True, nan=self.FLOAT_FILL)
         
         dxa = dataset.createVariable("d_x_area", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -397,6 +403,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database."
+        self.reach_data["d_x_area"][np.isclose(self.reach_data["d_x_area"], 1.00000000e+24)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(self.reach_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nt",),
