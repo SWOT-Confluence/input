@@ -67,7 +67,7 @@ class Extract:
         extract reach level data from shapefile found at reach_file path.
     """
     
-    LOCAL_INPUT = Path("")    # local
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot")    # local
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time"]
     
@@ -86,7 +86,8 @@ class Extract:
         self.confluence_fs = confluence_fs        
         self.reach_id = reach_id
         self.node_ids = np.array(node_ids, dtype=str)
-        self.cycle_data = extract_passes(int(str(reach_id)[0]), self.confluence_fs)
+        # self.cycle_data = extract_passes(int(str(reach_id)[0]), self.confluence_fs)
+        self.cycle_data = extract_passes_local(int(str(reach_id)[0]), self.LOCAL_INPUT)    # local
         self.node_data = {}
         self.obs_times = []
         self.reach_data = { key: np.array([]) for key in self.REACH_VARS }        
@@ -184,8 +185,8 @@ class Extract:
         """
         
         # Load and locate reach identifier data
-        df = gpd.read_file(f"s3://{node_file}")
-        # df = gpd.read_file(node_file)    # local
+        # df = gpd.read_file(f"s3://{node_file}")
+        df = gpd.read_file(node_file)    # local
         
         # Get node identifiers for reach in dataframe
         df = df[df["node_id"].isin(self.node_ids)]
@@ -210,8 +211,8 @@ class Extract:
         """
         
         # Load and locate reach identifier data
-        df = gpd.read_file(f"s3://{reach_file}")
-        # df = gpd.read_file(reach_file)    # local
+        # df = gpd.read_file(f"s3://{reach_file}")
+        df = gpd.read_file(reach_file)    # local
         df = df.loc[df["reach_id"] == self.reach_id]
         if not df.empty:
             # Append data into dictionary numpy arrays

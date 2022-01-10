@@ -40,7 +40,8 @@ def main():
     # Extract SWOT data
     print("Extracting SWOT data.")
     ext = Extract(login.confluence_fs, reach_data[0], reach_data[1])
-    ext.extract_data()
+    # ext.extract_data()
+    ext.extract_data_local()    # local
     
     # Write SWOT data
     print("Writing SWOT data to NetCDF.")
