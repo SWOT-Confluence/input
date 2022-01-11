@@ -203,7 +203,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database. Extracted from reach-level and appended to node."
-        self.node_data["d_x_area"][np.isclose(self.node_data["d_x_area"], 1.00000000000881e+24)] = np.nan    # sac-specific
+        self.node_data["d_x_area"][np.isclose(self.node_data["d_x_area"], -1.e+12)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(self.node_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nx", "nt"),
@@ -403,7 +403,7 @@ class Write:
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
         dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database."
-        self.reach_data["d_x_area"][np.isclose(self.reach_data["d_x_area"], 1.00000000e+24)] = np.nan    # sac-specific
+        self.reach_data["d_x_area"][np.isclose(self.reach_data["d_x_area"], -1.e+12)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(self.reach_data["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
         dxa_u = dataset.createVariable("d_x_area_u", "f8", ("nt",),
