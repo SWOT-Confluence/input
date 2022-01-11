@@ -164,7 +164,8 @@ class Extract:
             self.extract_node(node_file, t)
             
         # Calculate d_x_area
-        self.reach_data["d_x_area"] = calculate_d_x_a(self.reach_data["wse"], self.reach_data["width"])    # Temp calculation of dA for current dataset
+        if np.all((self.reach_data["d_x_area"] == 0)):
+            self.reach_data["d_x_area"] = calculate_d_x_a(self.reach_data["wse"], self.reach_data["width"])    # Temp calculation of dA for current dataset
         
         # Append slope and d_x_area to node level
         self.append_node("slope2", self.node_ids.shape[0])
