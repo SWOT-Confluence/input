@@ -12,8 +12,6 @@ calculate_d_x_a(wse, width)
     Calculate and return the change in area.
 create_node_dict(nx, nt)
     Initialize an empty node dict of numpy array values
-extract_passes(continent)
-    Retrieve pass and cycle identifiers for continent from shapefiles.
 """
 
 # Standard imports
@@ -60,8 +58,12 @@ class ExtractRiver(ExtractStrategy):
         extract node level data from shapefile found at node_file path.
     extract_reach(reach_file, time)
         extract reach level data from shapefile found at reach_file path.
+    retrieve_swot_files(c_id)
+        retrieve SWOT Lake shapefiles
     """
     
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
+    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     
@@ -211,6 +213,34 @@ class ExtractRiver(ExtractStrategy):
             for var in self.REACH_VARS:
                 self.reach_data[var] = np.append(self.reach_data[var], df[var])
             return True
+        else:
+            return False
+        
+    def retrieve_swot_files(self, c_id):
+        """Retrieve SWOT Lake shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        """
+        
+        c_abr = self.CONT_LOOKUP[c_id]
+        c_files = [Path(c_file).name for c_file in self.confluence_fs.glob(f"confluence-swot/*reach*{c_abr}*.shp")]
+        return c_files
+    
+    def retrieve_swot_files_local(self, c_id):
+        """Retrieve SWOT Lake shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        """
+        
+        c_abr = self.CONT_LOOKUP[c_id]
+        c_files = [Path(c_file).name for c_file in glob.glob(str(self.LOCAL_INPUT / f"*reach*{c_abr}*.shp"))]
+        return c_files
                 
                 
 # Functions

@@ -1,25 +1,6 @@
-"""ExtractStrategy module 
-
-Class
------
-ExtractStrategy
-    Abstract parent class that that extracts and concatenates SWOT observations 
-    from shapefiles.
-
-Functions
----------
-extract_passes(continent)
-    Retrieve pass and cycle identifiers for continent from shapefiles.
-"""
-
 # Standard imports
 from abc import ABCMeta, abstractmethod
-import glob
 from pathlib import Path
-
-# Constants
-CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
-                    7: "NA", 8: "NA", 9: "NA"}
 
 # Class
 class ExtractStrategy(metaclass=ABCMeta):
@@ -40,10 +21,12 @@ class ExtractStrategy(metaclass=ABCMeta):
     -------
     extract(confluence_fs)
         extracts data from S3 bucket shapefiles and stores in data dictionaries
+    extract_passes(continent)
+        retrieve pass and cycle identifiers for continent from shapefiles.
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
-    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
+    CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
+                    7: "NA", 8: "NA", 9: "NA"}
     
     def __init__(self, confluence_fs, swot_id):
         """
@@ -57,7 +40,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         
         self.confluence_fs = confluence_fs        
         # self.cycle_data = extract_passes(int(str(swot_id)[0]), self.confluence_fs)
-        self.cycle_data = extract_passes_local(int(str(swot_id)[0]), self.LOCAL_INPUT)    # local
+        self.cycle_data = self.extract_passes_local(int(str(swot_id)[0]))    # local
         self.obs_times = []
     
     @classmethod
@@ -65,7 +48,11 @@ class ExtractStrategy(metaclass=ABCMeta):
         return (hasattr(subclass, 'extract_data') and 
                 callable(subclass.extract_data) and 
                 hasattr(subclass, 'extract_data_local') and 
-                callable(subclass.extract_data_local) or
+                callable(subclass.extract_data_local) and
+                hasattr(subclass, 'retrieve_swot_files') and 
+                callable(subclass.retrieve_swot_files) and 
+                hasattr(subclass, 'retrieve_swot_files_local') and 
+                callable(subclass.retrieve_swot_files_local) or
                 NotImplemented)
 
     @abstractmethod
@@ -78,67 +65,84 @@ class ExtractStrategy(metaclass=ABCMeta):
     def extract_local(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
         
+        raise NotImplementedError    
+    
+    def extract_passes(self, c_id):
+        """Retrieve pass and cycle identifiers for continent from shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        
+        Returns
+        -------
+        dictionary of cycle keys and pass values
+        """
+        
+        # Locate cycle/pass identifiers for continent
+        c_files = self.retrieve_swot_files(c_id)
+        c_dict = {}
+        for c_file in c_files:
+            key = int(c_file.split('_')[5])
+            if key in c_dict.keys():
+                c_dict[key].append(int(c_file.split('_')[6]))
+            else:
+                c_dict[key] = [int(c_file.split('_')[6])]
+        
+        # Sort pass identifiers for each cycle
+        for value in c_dict.values(): value.sort()
+        
+        return c_dict
+        
+    def extract_passes_local(self, c_id):
+        """Retrieve pass and cycle identifiers for continent from shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        
+        Returns
+        -------
+        dictionary of cycle keys and pass values
+        """
+        
+        # Locate cycle/pass identifiers for continent
+        c_files = self.retrieve_swot_files_local(c_id)
+        c_dict = {}
+        for c_file in c_files:
+            key = int(c_file.split('_')[5])
+            if key in c_dict.keys():
+                c_dict[key].append(int(c_file.split('_')[6]))
+            else:
+                c_dict[key] = [int(c_file.split('_')[6])]
+        
+        # Sort pass identifiers for each cycle
+        for value in c_dict.values(): value.sort()
+        
+        return c_dict
+    
+    @abstractmethod
+    def retrieve_swot_files(self, c_id):
+        """Retrieve SWOT Lake shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        """
+        
         raise NotImplementedError
     
-    
-def extract_passes(c_id, confluence_fs):
-    """Retrieve pass and cycle identifiers for continent from shapefiles.
-    
-    Parameters
-    ----------
-    c_id: int
-        Continent integer identifier
-    confluence_fs: S3FileSystem
-        references Confluence S3 buckets (holds shapefiles)
-    
-    Returns
-    -------
-    dictionary of cycle keys and pass values
-    """
-    
-    # Locate cycle/pass identifiers for continent
-    c_abr = CONT_LOOKUP[c_id]
-    c_files = [Path(c_file).name for c_file in confluence_fs.glob(f"confluence-swot/*reach*{c_abr}*.shp")]
-    c_dict = {}
-    for c_file in c_files:
-        key = int(c_file.split('_')[5])
-        if key in c_dict.keys():
-            c_dict[key].append(int(c_file.split('_')[6]))
-        else:
-            c_dict[key] = [int(c_file.split('_')[6])]
-    
-    # Sort pass identifiers for each cycle
-    for value in c_dict.values(): value.sort()
-    
-    return c_dict
-    
-def extract_passes_local(c_id, swot_dir):
-    """Retrieve pass and cycle identifiers for continent from shapefiles.
-    
-    Parameters
-    ----------
-    c_id: int
-        Continent integer identifier
-    swot_dir: Path
-        Path to local SWOT directory that contains shapefiles
-    
-    Returns
-    -------
-    dictionary of cycle keys and pass values
-    """
-    
-    # Locate cycle/pass identifiers for continent
-    c_abr = CONT_LOOKUP[c_id]
-    c_files = [Path(c_file).name for c_file in glob.glob(str(swot_dir / f"*reach*{c_abr}*.shp"))]
-    c_dict = {}
-    for c_file in c_files:
-        key = int(c_file.split('_')[5])
-        if key in c_dict.keys():
-            c_dict[key].append(int(c_file.split('_')[6]))
-        else:
-            c_dict[key] = [int(c_file.split('_')[6])]
-    
-    # Sort pass identifiers for each cycle
-    for value in c_dict.values(): value.sort()
-    
-    return c_dict
+    @abstractmethod
+    def retrieve_swot_files_local(self, c_id):
+        """Retrieve SWOT Lake shapefiles.
+        
+        Parameters
+        ----------
+        c_id: int
+            Continent integer identifier
+        """
+        
+        raise NotImplementedError
