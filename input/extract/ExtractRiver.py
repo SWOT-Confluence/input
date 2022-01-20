@@ -1,4 +1,4 @@
-"""Extract module: Contains a class for extracting shapefile data and storing
+"""ExtractRiver module: Contains a class for extracting shapefile data and storing
 it in Numpy arrays organized by reach identifier.
 
 Class
@@ -24,30 +24,25 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 
+# Local imports
+from input.extract.ExtractStrategy import ExtractStrategy
+
 # Constants
 CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
                     7: "NA", 8: "NA", 9: "NA"}
 
 # Class
-class Extract:
-    """A class that extracts and concatenates SWOT observations from shapefiles.
-    
-    Time series data is concatenated over shapefiles.
+class ExtractRiver(ExtractStrategy):
+    """A class that extends ExtractStrategy to extract river data.
 
     Attributes
     ----------
-    confluence_fs: S3FileSystem
-        references Confluence S3 buckets
-    cycle_data: dict
-        dictionary of cycle identifier keys with pass identifier values
     node_data: dict
         dictionary with variable keys and numpy array value of SWOT node data
     node_ids: list
         list of integer node identifiers
     NODE_VARS: list
         list of node variables to extract from SWOT shapefiles
-    obs_times: list
-        list of 'cycle/pass' values that contained observations for this reach
     reach_data: dict
         dictionary with variable keys and numpy array value of SWOT reach data
     reach_id: int
@@ -59,7 +54,7 @@ class Extract:
     -------
     append_node(nx, nt)
         appends reach level data to the node level    # FLAGGED AS CLASS METHOD
-    extract_data(confluence_fs)
+    extract(confluence_fs)
         extracts data from S3 bucket shapefiles and stores in data dictionaries
     extract_node(node_file, time)
         extract node level data from shapefile found at node_file path.
@@ -67,7 +62,8 @@ class Extract:
         extract reach level data from shapefile found at reach_file path.
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot")    # local
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
+    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time"]
     
@@ -83,13 +79,10 @@ class Extract:
             list of string node identifiers
         """
         
-        self.confluence_fs = confluence_fs        
+        super().__init__(confluence_fs, reach_id)
         self.reach_id = reach_id
         self.node_ids = np.array(node_ids, dtype=str)
-        # self.cycle_data = extract_passes(int(str(reach_id)[0]), self.confluence_fs)
-        self.cycle_data = extract_passes_local(int(str(reach_id)[0]), self.LOCAL_INPUT)    # local
         self.node_data = {}
-        self.obs_times = []
         self.reach_data = { key: np.array([]) for key in self.REACH_VARS }        
 
     def append_node(self, key, nx):
@@ -108,7 +101,7 @@ class Extract:
         data = np.tile(self.reach_data[key], (nx, 1))
         self.node_data[key] = data        
 
-    def extract_data(self):
+    def extract(self):
         """Extracts data from confluence_fs S3 bucket and stores in data dict.
         
         Assumes that nodes will have the same cycle and pass number as the
@@ -144,7 +137,7 @@ class Extract:
         self.append_node("d_x_area", self.node_ids.shape[0])
         self.append_node("d_x_area_u", self.node_ids.shape[0])
     
-    def extract_data_local(self):
+    def extract_local(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
         
         # Extract reach data
@@ -266,65 +259,3 @@ def create_node_dict(nx, nt):
         "xovr_cal_q" : np.full((nx, nt), -999, int),
         "time": np.full((nx, nt), np.nan, dtype=np.float64)
     }
-
-def extract_passes(c_id, confluence_fs):
-    """Retrieve pass and cycle identifiers for continent from shapefiles.
-    
-    Parameters
-    ----------
-    c_id: int
-        Continent integer identifier
-    confluence_fs: S3FileSystem
-        references Confluence S3 buckets (holds shapefiles)
-    
-    Returns
-    -------
-    dictionary of cycle keys and pass values
-    """
-    
-    # Locate cycle/pass identifiers for continent
-    c_abr = CONT_LOOKUP[c_id]
-    c_files = [Path(c_file).name for c_file in confluence_fs.glob(f"confluence-swot/*reach*{c_abr}*.shp")]
-    c_dict = {}
-    for c_file in c_files:
-        key = int(c_file.split('_')[5])
-        if key in c_dict.keys():
-            c_dict[key].append(int(c_file.split('_')[6]))
-        else:
-            c_dict[key] = [int(c_file.split('_')[6])]
-    
-    # Sort pass identifiers for each cycle
-    for value in c_dict.values(): value.sort()
-    
-    return c_dict
-    
-def extract_passes_local(c_id, swot_dir):
-    """Retrieve pass and cycle identifiers for continent from shapefiles.
-    
-    Parameters
-    ----------
-    c_id: int
-        Continent integer identifier
-    swot_dir: Path
-        Path to local SWOT directory that contains shapefiles
-    
-    Returns
-    -------
-    dictionary of cycle keys and pass values
-    """
-    
-    # Locate cycle/pass identifiers for continent
-    c_abr = CONT_LOOKUP[c_id]
-    c_files = [Path(c_file).name for c_file in glob.glob(str(swot_dir / f"*reach*{c_abr}*.shp"))]
-    c_dict = {}
-    for c_file in c_files:
-        key = int(c_file.split('_')[5])
-        if key in c_dict.keys():
-            c_dict[key].append(int(c_file.split('_')[6]))
-        else:
-            c_dict[key] = [int(c_file.split('_')[6])]
-    
-    # Sort pass identifiers for each cycle
-    for value in c_dict.values(): value.sort()
-    
-    return c_dict

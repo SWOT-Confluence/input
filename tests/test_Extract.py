@@ -2,7 +2,7 @@
 import glob
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Third-party imports
 import geopandas as gpd
@@ -11,7 +11,8 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from s3fs import S3FileSystem
 
 # Local imports
-from input.Extract import Extract, calculate_d_x_a, create_node_dict, extract_passes, extract_passes_local
+from input.extract.ExtractStrategy import extract_passes, extract_passes_local
+from input.extract.ExtractRiver import ExtractRiver, calculate_d_x_a, create_node_dict
 
 class TestExtract(unittest.TestCase):
     """Tests methods and functions from Extract module."""
@@ -65,7 +66,7 @@ class TestExtract(unittest.TestCase):
         # Create Extract object
         mock_fs.glob.return_value = self.get_file_list()
         node_ids = ["74267100010011", "74267100010021", "74267100010031", "74267100010041", "74267100010051"]
-        ext = Extract(mock_fs, "74267100011", node_ids)
+        ext = ExtractRiver(mock_fs, "74267100011", node_ids)
         
         # Set and append reach data to node level data
         ext.reach_data["slope2"] = [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05]
@@ -79,9 +80,8 @@ class TestExtract(unittest.TestCase):
                     [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05],
                     [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05]]
         assert_array_almost_equal(expected, ext.node_data["slope2"])
-    
-    @patch.object(S3FileSystem, "glob")    
-    def test_extract_data(self, mock_fs):
+      
+    def test_extract_data(self):
         """Tests extract_data method."""
         
         # Create object and extract data
@@ -94,12 +94,13 @@ class TestExtract(unittest.TestCase):
         file_list = [reach_files] + reach_files + node_files
         df_list = reach_dfs + node_dfs
         
-        Extract.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        ExtractRiver.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        mock_fs = Mock()
         mock_fs.glob.side_effect = file_list
-        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = df_list
-            ext.extract_data()
+            ext.extract()
         
         # Assert reach-level results
         expected = np.array([620.376586, 620.376586, 713.994386, 713.994386, 628.685508])
@@ -170,12 +171,12 @@ class TestExtract(unittest.TestCase):
         node_dfs = [gpd.read_file(str(self.PARENT / node_file)) for node_file in node_files]
         df_list = reach_dfs + node_dfs
         
-        Extract.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        ExtractRiver.LOCAL_INPUT = Path(__file__).parent / "test_data"
         mock_fs.glob.return_value = self.get_file_list()
-        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = df_list
-            ext.extract_data_local()
+            ext.extract_local()
         
         # Assert reach-level results
         expected = np.array([620.376586, 620.376586, 713.994386, 713.994386, 628.685508])
@@ -238,7 +239,7 @@ class TestExtract(unittest.TestCase):
         """Tests extract_node method."""
         
         mock_fs.glob.return_value = self.get_file_list()
-        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         ext.node_data = create_node_dict(5,5)
         node_file = Path(__file__).parent / "test_data" /  "SWOT_L2_HR_RiverSP_node_1_441_NA_20100214T170527_20100214T170537_PGA2_03.shp"
         df = gpd.read_file(node_file)
@@ -272,7 +273,7 @@ class TestExtract(unittest.TestCase):
         """Tests extract_reach method."""
         
         mock_fs.glob.return_value = self.get_file_list()
-        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         
         reach_file = Path(__file__).parent / "test_data" / "SWOT_L2_HR_RiverSP_reach_1_441_NA_20100214T170530_20100215T060108_PGA2_03.shp"
         df = gpd.read_file(reach_file)        
