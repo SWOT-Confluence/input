@@ -11,7 +11,6 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from s3fs import S3FileSystem
 
 # Local imports
-from input.extract.ExtractStrategy import extract_passes, extract_passes_local
 from input.extract.ExtractRiver import ExtractRiver, calculate_d_x_a, create_node_dict
 
 class TestExtract(unittest.TestCase):
@@ -40,7 +39,8 @@ class TestExtract(unittest.TestCase):
         """Tests extract_passes function."""
         
         mock_fs.glob.return_value = self.get_file_list()
-        c_dict = extract_passes(7, mock_fs)
+        ext = ExtractRiver(mock_fs, "74267100011", None)
+        c_dict = ext.extract_passes(7)
         expected = {
             1: [441, 456],
             2: [441, 456],
@@ -51,7 +51,9 @@ class TestExtract(unittest.TestCase):
     def test_extract_passes_local(self):
         """Tests extract_passes_local function."""
         
-        c_dict = extract_passes_local(7, Path(__file__).parent / "test_data")
+        ext = ExtractRiver(None, "74267100011", None)
+        ext.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        c_dict = ext.extract_passes_local(7)
         expected = {
             1: [441, 456],
             2: [441, 456],
