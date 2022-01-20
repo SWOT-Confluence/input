@@ -42,7 +42,8 @@ class ExtractStrategy(metaclass=ABCMeta):
         extracts data from S3 bucket shapefiles and stores in data dictionaries
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot")    # local
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
+    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
     
     def __init__(self, confluence_fs, swot_id):
         """
@@ -55,8 +56,8 @@ class ExtractStrategy(metaclass=ABCMeta):
         """
         
         self.confluence_fs = confluence_fs        
-        self.cycle_data = extract_passes(int(str(swot_id)[0]), self.confluence_fs)
-        # self.cycle_data = extract_passes_local(int(str(swot_id)[0]), self.LOCAL_INPUT)    # local
+        # self.cycle_data = extract_passes(int(str(swot_id)[0]), self.confluence_fs)
+        self.cycle_data = extract_passes_local(int(str(swot_id)[0]), self.LOCAL_INPUT)    # local
         self.obs_times = []
     
     @classmethod

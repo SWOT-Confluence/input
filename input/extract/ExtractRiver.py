@@ -54,7 +54,7 @@ class ExtractRiver(ExtractStrategy):
     -------
     append_node(nx, nt)
         appends reach level data to the node level    # FLAGGED AS CLASS METHOD
-    extract(confluence_fs)
+    extract()
         extracts data from S3 bucket shapefiles and stores in data dictionaries
     extract_node(node_file, time)
         extract node level data from shapefile found at node_file path.
@@ -62,10 +62,8 @@ class ExtractRiver(ExtractStrategy):
         extract reach level data from shapefile found at reach_file path.
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
-    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
-    REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time"]
-    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time"]
+    REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
+    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     
     def __init__(self, confluence_fs, reach_id, node_ids):
         """
@@ -257,5 +255,6 @@ def create_node_dict(nx, nt):
         "partial_f" : np.full((nx, nt), -999, dtype=int),
         "n_good_pix" : np.full((nx, nt), -99999999, int),
         "xovr_cal_q" : np.full((nx, nt), -999, int),
-        "time": np.full((nx, nt), np.nan, dtype=np.float64)
+        "time": np.full((nx, nt), np.nan, dtype=np.float64),
+        "time_str": np.full((nx, nt), np.nan, dtype=str)
     }
