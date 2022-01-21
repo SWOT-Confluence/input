@@ -14,12 +14,14 @@ import sys
 
 # Local imports
 from input.Input import Input
+from input.extract.ExtractLake import ExtractLake
 from input.extract.ExtractRiver import ExtractRiver
 from input.Login import Login
+from input.write.WriteLake import WriteLake
+from input.write.WriteRiver import WriteRiver
 
 # Constants
 DATA = Path("/mnt/data")
-DATA = Path("/home/nikki/Documents/confluence/workspace/input/data")
 
 def get_exe_data(input_json):
         """Retrun dictionary of data required to execution input operations.
@@ -34,8 +36,7 @@ def get_exe_data(input_json):
         dictionary of execution data
         """
         
-        # index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
-        index = 194
+        index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
         with open(DATA/ input_json) as json_file:
             reach_data = json.load(json_file)[index]
         return reach_data
@@ -61,11 +62,12 @@ def select_strategies(context, confluence_fs, exe_data):
     
     if context == "river":
         er = ExtractRiver(confluence_fs, exe_data[0], exe_data[1])
-        # input = Input(ExtractRiver(), WriteRiver())
-        input = Input(er, None)
+        ew = WriteRiver(exe_data[0], DATA, exe_data[1])
+        input = Input(er, ew)
     elif context == "lake": 
-        # input = Input(ExtractLake(), WriteLake())
-        input = Input(None, None)
+        el = ExtractLake(confluence_fs, exe_data)
+        wl = WriteLake(exe_data, DATA)
+        input = Input(el, wl)
     else:
         print("Incorrect context selected to execute input operations.")
         sys.exit(1)
@@ -84,14 +86,14 @@ def main():
         input_json = "reach_node.json"
         context = "river"
     exe_data = get_exe_data(input_json)
-    
+
     # Log into S3
     login = Login()
     login.login()
     
     # Create Input and set execution strategy
     input = select_strategies(context, login.confluence_fs, exe_data)
-    input.execute_strategies()
+    input.execute_strategies_local()
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")

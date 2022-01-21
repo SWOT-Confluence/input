@@ -48,7 +48,16 @@ class Input:
         """Run input operations: extract observations and write NetCDF file."""
                 
         # Extract data
-        self.extract_strategy.extract_local()
-        
+        self.extract_strategy.extract()
+                        
         # Write data
-        self.write_strategy.write()
+        self.write_strategy.write(self.extract_strategy.data, self.extract_strategy.obs_times)
+        
+    def execute_strategies_local(self):
+        """Run input operations: extract observations and write NetCDF file."""
+                
+        # Extract data
+        self.extract_strategy.extract_local()
+                        
+        # Write data
+        self.write_strategy.write(self.extract_strategy.data, self.extract_strategy.obs_times)
