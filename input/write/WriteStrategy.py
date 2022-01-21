@@ -27,15 +27,15 @@ class WriteStrategy:
 
     Methods
     -------
-    create_dimensions( nx, nt, dataset)
+    create_dimensions(dataset)
         create dimensions and coordinate variables for dataset
     define_global_attrs(dataset)
         Set global attributes for NetCDF dataset file
-    define_global_obs(dataset)
+    define_global_obs(dataset, obs_times)
         define global observation NetCDF variable
-    write()
+    write(data, obs_times)
         executes write operations
-    write_data()
+    write_data(dataset, data)
         writes SWOT data dictionaries to NetCDF files organized by continent
     """
 

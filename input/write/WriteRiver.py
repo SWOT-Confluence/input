@@ -27,10 +27,6 @@ class WriteRiver(WriteStrategy):
         writes reach level data to NetCDF file in reach group
     """
 
-    CONTINENTS = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 7: "NA", 8: "NA", 9:"NA" }
-    FLOAT_FILL = -999999999999
-    INT_FILL = -999
-
     def __init__(self, swot_id, output_dir, node_ids):
         """
         Parameters
