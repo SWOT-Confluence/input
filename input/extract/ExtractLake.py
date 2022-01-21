@@ -28,7 +28,7 @@ class ExtractLake(ExtractStrategy):
     
     Attributes
     ----------
-    lake_data: dict
+    data: dict
         dictionary with variable keys and numpy array value of SWOT lake data
     lake_id: int
         integer lake identifier
@@ -61,7 +61,7 @@ class ExtractLake(ExtractStrategy):
         
         super().__init__(confluence_fs, lake_id)
         self.lake_id = lake_id
-        self.lake_data = { key: np.array([]) for key in self.LAKE_VARS }
+        self.data = { key: np.array([]) for key in self.LAKE_VARS }
         
     def retrieve_swot_files(self, c_id):
         """Retrieve SWOT Lake shapefiles.
@@ -126,13 +126,13 @@ class ExtractLake(ExtractStrategy):
         boolean indicator of data found for reach
         """
         
-        df = gpd.read_file(f"s3://{lake_file}")
-        # df = gpd.read_file(lake_file)    # local
+        # df = gpd.read_file(f"s3://{lake_file}")
+        df = gpd.read_file(lake_file)    # local
         df = df.loc[df["lake_id"] == self.lake_id]
         if not df.empty:
             # Append data into dictionary numpy arrays
             for var in self.LAKE_VARS:
-                self.lake_data[var] = np.append(self.lake_data[var], df[var])
+                self.data[var] = np.append(self.data[var], df[var])
             return True
         else:
             return False

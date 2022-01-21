@@ -35,14 +35,12 @@ class ExtractRiver(ExtractStrategy):
 
     Attributes
     ----------
-    node_data: dict
-        dictionary with variable keys and numpy array value of SWOT node data
+    data: dict
+        dictionary of reach and node dictionaries
     node_ids: list
         list of integer node identifiers
     NODE_VARS: list
         list of node variables to extract from SWOT shapefiles
-    reach_data: dict
-        dictionary with variable keys and numpy array value of SWOT reach data
     reach_id: int
         integer reach identifer
     REACH_VARS: list
@@ -81,9 +79,11 @@ class ExtractRiver(ExtractStrategy):
         
         super().__init__(confluence_fs, reach_id)
         self.reach_id = reach_id
-        self.node_ids = np.array(node_ids, dtype=str)
-        self.node_data = {}
-        self.reach_data = { key: np.array([]) for key in self.REACH_VARS }        
+        self.node_ids = np.array(node_ids, dtype=str)  
+        self.data = {
+            "reach": { key: np.array([]) for key in self.REACH_VARS },
+            "node": {}
+        }   
 
     def append_node(self, key, nx):
         """Appends reach level data identified by key to the node level.
@@ -98,8 +98,8 @@ class ExtractRiver(ExtractStrategy):
             Number of nodes
         """
 
-        data = np.tile(self.reach_data[key], (nx, 1))
-        self.node_data[key] = data        
+        node_data = np.tile(self.data["reach"][key], (nx, 1))
+        self.data["node"][key] = node_data        
 
     def extract(self):
         """Extracts data from confluence_fs S3 bucket and stores in data dict.
@@ -121,7 +121,7 @@ class ExtractRiver(ExtractStrategy):
                 if extracted: self.obs_times.append(f"{c}/{p}")
         
         # Extract node data
-        self.node_data = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
+        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
         for t in range(len(self.obs_times)):
             c = self.obs_times[t].split('/')[0]
             p = self.obs_times[t].split('/')[1]
@@ -129,8 +129,9 @@ class ExtractRiver(ExtractStrategy):
             self.extract_node(node_file, t)
             
         # Calculate d_x_area
-        self.reach_data["d_x_area"] = calculate_d_x_a(self.reach_data["wse"], self.reach_data["width"])    # Temp calculation of dA for current dataset
-        
+        if np.all((self.data["reach"]["d_x_area"] == 0)):
+            self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
+            
         # Append slope and d_x_area to node level
         self.append_node("slope2", self.node_ids.shape[0])
         self.append_node("slope2_u", self.node_ids.shape[0])
@@ -150,7 +151,7 @@ class ExtractRiver(ExtractStrategy):
                 if extracted: self.obs_times.append(f"{c}/{p}")
         
         # Extract node data
-        self.node_data = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
+        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
         for t in range(len(self.obs_times)):
             c = self.obs_times[t].split('/')[0]
             p = self.obs_times[t].split('/')[1]
@@ -158,8 +159,8 @@ class ExtractRiver(ExtractStrategy):
             self.extract_node(node_file, t)
             
         # Calculate d_x_area
-        if np.all((self.reach_data["d_x_area"] == 0)):
-            self.reach_data["d_x_area"] = calculate_d_x_a(self.reach_data["wse"], self.reach_data["width"])    # Temp calculation of dA for current dataset
+        if np.all((self.data["reach"]["d_x_area"] == 0)):
+            self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
         
         # Append slope and d_x_area to node level
         self.append_node("slope2", self.node_ids.shape[0])
@@ -189,7 +190,7 @@ class ExtractRiver(ExtractStrategy):
             df.sort_values(by=["node_id"], inplace=True)
             nx = np.searchsorted(self.node_ids, df["node_id"].tolist())
             for var in self.NODE_VARS:
-                self.node_data[var][nx,time] = df[var].tolist()             
+                self.data["node"][var][nx,time] = df[var].tolist()             
                 
     def extract_reach(self, reach_file):
         """Extract reach level data from shapefile found at reach_file path.
@@ -211,7 +212,7 @@ class ExtractRiver(ExtractStrategy):
         if not df.empty:
             # Append data into dictionary numpy arrays
             for var in self.REACH_VARS:
-                self.reach_data[var] = np.append(self.reach_data[var], df[var])
+                self.data["reach"][var] = np.append(self.data["reach"][var], df[var])
             return True
         else:
             return False
