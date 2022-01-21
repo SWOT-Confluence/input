@@ -12,6 +12,7 @@ from s3fs import S3FileSystem
 
 # Local imports
 from input.extract.ExtractRiver import ExtractRiver, calculate_d_x_a, create_node_dict
+from input.extract.ExtractLake import ExtractLake
 
 class TestExtract(unittest.TestCase):
     """Tests methods and functions from Extract module."""
@@ -19,11 +20,17 @@ class TestExtract(unittest.TestCase):
     PARENT = Path(__file__).parent / "test_data"
     REACH_ID = "74267100011"
     NODE_LIST = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
+    LAKE_ID = "7720003433"
     
-    def get_file_list(self):
+    def get_files_river(self):
         """Helper function that returns list of test files."""
         
         return [Path(c_file).name for c_file in glob.glob(str(self.PARENT / f"*reach*.shp"))]
+    
+    def get_files_lake(self):
+        """Helper function that returns list of test files."""
+        
+        return [Path(c_file).name for c_file in glob.glob(str(self.PARENT / f"*Prior*.shp"))]
     
     def test_calculate_d_x_a(self):
         """Tests calculate_d_x_a function."""
@@ -38,7 +45,7 @@ class TestExtract(unittest.TestCase):
     def test_extract_passes(self, mock_fs):
         """Tests extract_passes function."""
         
-        mock_fs.glob.return_value = self.get_file_list()
+        mock_fs.glob.return_value = self.get_files_river()
         ext = ExtractRiver(mock_fs, "74267100011", None)
         c_dict = ext.extract_passes(7)
         expected = {
@@ -66,7 +73,7 @@ class TestExtract(unittest.TestCase):
         """Tests append_node method."""
         
         # Create Extract object
-        mock_fs.glob.return_value = self.get_file_list()
+        mock_fs.glob.return_value = self.get_files_river()
         node_ids = ["74267100010011", "74267100010021", "74267100010031", "74267100010041", "74267100010051"]
         ext = ExtractRiver(mock_fs, "74267100011", node_ids)
         
@@ -83,11 +90,11 @@ class TestExtract(unittest.TestCase):
                     [4.5e-05, 4.5e-05, 3.9e-05, 3.9e-05, 4.1e-05, 4.1e-05, 3.5e-05, 3.5e-05, 4.4e-05, 4.4e-05]]
         assert_array_almost_equal(expected, ext.node_data["slope2"])
       
-    def test_extract_data(self):
+    def test_extract_river(self):
         """Tests extract_data method."""
         
         # Create object and extract data
-        reach_files = self.get_file_list()
+        reach_files = self.get_files_river()
         reach_files.sort()
         reach_dfs = [gpd.read_file(str(self.PARENT / reach_file)) for reach_file in reach_files]
         node_files = [Path(c_file).name for c_file in glob.glob(str(self.PARENT / f"*node*.shp"))]
@@ -161,11 +168,11 @@ class TestExtract(unittest.TestCase):
         assert_array_equal(expected, ext.obs_times)
     
     @patch.object(S3FileSystem, "glob")    
-    def test_extract_data_local(self, mock_fs):
+    def test_extract_river_local(self, mock_fs):
         """Tests extract_data_local method."""
         
         # Create object and extract data
-        reach_files = self.get_file_list()
+        reach_files = self.get_files_river()
         reach_files.sort()
         reach_dfs = [gpd.read_file(str(self.PARENT / reach_file)) for reach_file in reach_files]
         node_files = [Path(c_file).name for c_file in glob.glob(str(self.PARENT / f"*node*.shp"))]
@@ -174,7 +181,7 @@ class TestExtract(unittest.TestCase):
         df_list = reach_dfs + node_dfs
         
         ExtractRiver.LOCAL_INPUT = Path(__file__).parent / "test_data"
-        mock_fs.glob.return_value = self.get_file_list()
+        mock_fs.glob.return_value = self.get_files_river()
         ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = df_list
@@ -240,7 +247,7 @@ class TestExtract(unittest.TestCase):
     def test_extract_node(self, mock_fs):
         """Tests extract_node method."""
         
-        mock_fs.glob.return_value = self.get_file_list()
+        mock_fs.glob.return_value = self.get_files_river()
         ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         ext.node_data = create_node_dict(5,5)
         node_file = Path(__file__).parent / "test_data" /  "SWOT_L2_HR_RiverSP_node_1_441_NA_20100214T170527_20100214T170537_PGA2_03.shp"
@@ -274,7 +281,7 @@ class TestExtract(unittest.TestCase):
     def test_extract_reach(self, mock_fs):
         """Tests extract_reach method."""
         
-        mock_fs.glob.return_value = self.get_file_list()
+        mock_fs.glob.return_value = self.get_files_river()
         ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         
         reach_file = Path(__file__).parent / "test_data" / "SWOT_L2_HR_RiverSP_reach_1_441_NA_20100214T170530_20100215T060108_PGA2_03.shp"
@@ -288,3 +295,65 @@ class TestExtract(unittest.TestCase):
         self.assertAlmostEqual([0.000045], ext.reach_data["slope2"])
         self.assertAlmostEqual([0], ext.reach_data["d_x_area"])
         self.assertAlmostEqual([0], ext.reach_data["reach_q"])
+        
+    def test_extract_lake(self):
+        """Tests extract_data method."""
+        
+        # Create object and extract data
+        lake_files = self.get_files_lake()
+        lake_files.sort()
+        lake_dfs = [gpd.read_file(str(self.PARENT / lake_file)) for lake_file in lake_files]
+        
+        ExtractLake.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        mock_fs = Mock()
+        mock_fs.glob.side_effect = self.get_files_lake()
+        ext = ExtractLake(mock_fs, self.LAKE_ID)
+        with patch.object(gpd, "read_file") as mock_gpd:
+            mock_gpd.side_effect = lake_dfs
+            ext.extract()
+        
+        # Assert results
+        expected = np.array(['2008-10-01', '2008-10-08', '2008-10-15', '2008-10-22', '2008-10-29'])
+        assert_array_equal(expected, ext.lake_data["time_str"])
+        
+        expected = np.array([-2.39735586e-07, 6.5967069e-08, -1.11466267e-07, 5.9215381e-08, 1.39904948e-07])
+        assert_array_almost_equal(expected, ext.lake_data["delta_s_q"])
+        
+    @patch.object(S3FileSystem, "glob")    
+    def test_extract_lake_local(self, mock_fs):
+        """Tests extract_data_local method."""
+        
+        # Create object and extract data
+        lake_files = self.get_files_lake()
+        lake_files.sort()
+        lake_dfs = [gpd.read_file(str(self.PARENT / lake_file)) for lake_file in lake_files]
+        
+        ExtractLake.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        mock_fs.glob.return_value = self.get_files_lake()
+        ext = ExtractLake(mock_fs, self.LAKE_ID)
+        with patch.object(gpd, "read_file") as mock_gpd:
+            mock_gpd.side_effect = lake_dfs
+            ext.extract_local()
+        
+        # Assert results
+        expected = np.array(['2008-10-01', '2008-10-08', '2008-10-15', '2008-10-22', '2008-10-29'])
+        assert_array_equal(expected, ext.lake_data["time_str"])
+        
+        expected = np.array([-2.39735586e-07, 6.5967069e-08, -1.11466267e-07, 5.9215381e-08, 1.39904948e-07])
+        assert_array_almost_equal(expected, ext.lake_data["delta_s_q"])
+        
+    @patch.object(S3FileSystem, "glob")    
+    def test_extract_lake_data(self, mock_fs):
+        """Tests extract_lake method."""
+        
+        mock_fs.glob.return_value = self.get_files_lake()
+        ext = ExtractLake(mock_fs, self.LAKE_ID)
+        
+        reach_file = Path(__file__).parent / "test_data" / "SWOT_L2_HR_LakeSP_Prior_1_1001_NA_20220402T112019_20220402T112339_Dx0000_01.shp"
+        df = gpd.read_file(reach_file)        
+        with patch.object(gpd, "read_file") as mock_gpd:
+            mock_gpd.return_value = df
+            ext.extract_lake(reach_file)
+        
+        self.assertEqual(["2008-10-01"], ext.lake_data["time_str"])
+        assert_array_almost_equal([-2.397356e-07], ext.lake_data["delta_s_q"])
