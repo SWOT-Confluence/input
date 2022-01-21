@@ -11,9 +11,11 @@ from netCDF4 import Dataset, chartostring
 import numpy as np
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 from s3fs import S3FileSystem
+from input.extract.ExtractLake import ExtractLake
 
 # Local imports
 from input.extract.ExtractRiver import ExtractRiver
+from input.write.WriteLake import WriteLake
 from input.write.WriteRiver import WriteRiver
 
 class TestWrite(unittest.TestCase):
@@ -21,9 +23,10 @@ class TestWrite(unittest.TestCase):
     
     REACH_ID = "74267100011"
     NODE_LIST = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
-
+    LAKE_ID = "7720003433"
+    
     @patch.object(S3FileSystem, "glob")
-    def test_write_data(self, mock_fs):
+    def test_write_data_river(self, mock_fs):
         """Tests write_data method."""
         
         # Obtain required data
@@ -117,6 +120,48 @@ class TestWrite(unittest.TestCase):
         assert_array_almost_equal(expected, node["wse"][:])
         expected = np.full((5,5), fill_value=0, dtype=int)
         assert_array_almost_equal(expected, node["node_q"][:])
+        
+        # Clean up
+        dataset.close()
+        rmtree(swot_dir)
+        
+    @patch.object(S3FileSystem, "glob")
+    def test_write_data_lake(self, mock_fs):
+        """Tests write_data method."""
+        
+        # Obtain required data
+        parent = Path(__file__).parent / "test_data"
+        lake_files = [Path(c_file).name for c_file in glob.glob(str(parent / f"*Prior*.shp"))]
+        lake_files.sort()
+        lake_dfs = [gpd.read_file(str(parent / lake_file)) for lake_file in lake_files]
+        
+        ExtractLake.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        mock_fs.glob.side_effect = lake_files
+        ext = ExtractLake(mock_fs, self.LAKE_ID)
+        with patch.object(gpd, "read_file") as mock_gpd:
+            mock_gpd.side_effect = lake_dfs
+            ext.extract()
+
+        # Set up I/O, create Write object and execute function
+        swot_dir = Path(__file__).parent / "swot"
+        if not swot_dir.exists(): swot_dir.mkdir(parents=True, exist_ok=True)
+        write = WriteLake(self.LAKE_ID, swot_dir.parent)
+        write.write(ext.data, ext.obs_times)
+        
+        # Assert file results
+        dataset = Dataset(swot_dir / "7720003433_SWOT.nc", 'r')
+        
+        # Global data
+        self.assertEqual(5, dataset.dimensions["nt"].size)
+        self.assertEqual("NA", dataset.continent)
+        assert_array_equal(["1/1001", "1/1008", "1/1015", "1/1022", "1/1029"], chartostring(dataset["observations"][:]))
+        
+        # Lake data
+        expected = np.array(['2008-10-01', '2008-10-08', '2008-10-15', '2008-10-22', '2008-10-29'])
+        assert_array_equal(expected, chartostring(dataset["time_str"][:]))
+        
+        expected = np.array([-2.39735586e-07, 6.5967069e-08, -1.11466267e-07, 5.9215381e-08, 1.39904948e-07])
+        assert_array_almost_equal(expected, dataset["delta_s_q"][:])
         
         # Clean up
         dataset.close()
