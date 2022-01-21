@@ -20,6 +20,8 @@ class WriteStrategy:
         value to use when missing or invalid data is encountered for float
     INT_FILL: int
         value to use when missing or invalid data is encountered for integers
+    STR_FILL: str  
+        value to use when missing or invalid data is encountered for strings
     output_dir: Path
         path to output directory on EFS 'input' mount
     swot_id: int
@@ -42,6 +44,7 @@ class WriteStrategy:
     CONTINENTS = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 7: "NA", 8: "NA", 9:"NA" }
     FLOAT_FILL = -999999999999
     INT_FILL = -999
+    STR_FILL = "no data"
 
     def __init__(self, swot_id, output_dir):
         """

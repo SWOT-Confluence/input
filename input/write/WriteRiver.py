@@ -1,5 +1,6 @@
 # Third-party imports
 import numpy as np
+from netCDF4 import stringtochar
 
 # Local imports
 from input.write.WriteStrategy import WriteStrategy
@@ -133,6 +134,18 @@ class WriteRiver(WriteStrategy):
             + "to the UTC time at which the leap second occurs."
         data["node"]["time"][np.isclose(data["node"]["time"], -999999999999)] = self.FLOAT_FILL    # sac-specific
         time[:] = np.nan_to_num(data["node"]["time"], copy=True, nan=self.FLOAT_FILL)
+        
+        dataset.createDimension('chartime', 20)
+        time_str = dataset.createVariable("time_str", "S1", ("nx", "nt", "chartime"), 
+                                          fill_value=self.STR_FILL)
+        time_str.long_name = "UTC time"
+        time_str.standard_name = "time"
+        time_str.calendar = "gregorian"
+        time_str.tai_utc_difference = "[value of TAI-UTC at time of first record]"
+        time_str.leap_second = "YYYY-MM-DD hh:mm:ss"
+        time_str.comment = "Time string giving UTC time. The format is " \
+            + "YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time."
+        time_str[:] = stringtochar(data["node"]["time_str"].astype("S20"))
 
         dxa = dataset.createVariable("d_x_area", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -335,6 +348,18 @@ class WriteRiver(WriteStrategy):
             + "to the UTC time at which the leap second occurs."
         data["reach"]["time"][np.isclose(data["reach"]["time"], -999999999999)] = self.FLOAT_FILL    # sac-specific
         time[:] = np.nan_to_num(data["reach"]["time"], copy=True, nan=self.FLOAT_FILL)
+        
+        dataset.createDimension('chartime', 20)
+        time_str = dataset.createVariable("time_str", "S1", ("nt", "chartime"), 
+                                          fill_value=self.STR_FILL)
+        time_str.long_name = "UTC time"
+        time_str.standard_name = "time"
+        time_str.calendar = "gregorian"
+        time_str.tai_utc_difference = "[value of TAI-UTC at time of first record]"
+        time_str.leap_second = "YYYY-MM-DD hh:mm:ss"
+        time_str.comment = "Time string giving UTC time. The format is " \
+            + "YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time."
+        time_str[:] = stringtochar(data["reach"]["time_str"].astype("S20"))
         
         dxa = dataset.createVariable("d_x_area", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
