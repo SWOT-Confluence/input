@@ -13,8 +13,8 @@ from numpy.testing import assert_array_almost_equal, assert_array_equal
 from s3fs import S3FileSystem
 
 # Local imports
-from input.Extract import Extract
-from input.Write import Write
+from input.extract.ExtractRiver import ExtractRiver
+from input.write.WriteRiver import WriteRiver
 
 class TestWrite(unittest.TestCase):
     """Tests methods from Write class."""
@@ -38,19 +38,18 @@ class TestWrite(unittest.TestCase):
         
         file_list = [reach_files] + reach_files + node_files
         df_list = reach_dfs + node_dfs  
-        Extract.LOCAL_INPUT = Path(__file__).parent / "test_data"
+        ExtractRiver.LOCAL_INPUT = Path(__file__).parent / "test_data"
         mock_fs.glob.side_effect = file_list
-        ext = Extract(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = df_list
-            ext.extract_data()
+            ext.extract()
 
         # Set up I/O, create Write object and execute function
         swot_dir = Path(__file__).parent / "swot"
         if not swot_dir.exists(): swot_dir.mkdir(parents=True, exist_ok=True)
-        write = Write(ext.node_data, ext.reach_data, ext.obs_times, swot_dir.parent)
-        node_list = ["74267100010071", "74267100010081", "74267100010091", "74267100010101", "74267100010111"]
-        write.write_data("74267100011", node_list)
+        write = WriteRiver(self.REACH_ID, swot_dir.parent, self.NODE_LIST)
+        write.write(ext.data, ext.obs_times)
         
         # Assert file results
         dataset = Dataset(swot_dir / "74267100011_SWOT.nc", 'r')
