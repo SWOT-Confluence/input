@@ -97,6 +97,7 @@ def main():
     login.login()
     
     # Create Input and set execution strategy
+    print(f"Extracting and writing data for reach: {exe_data[0]}.")
     input = select_strategies(context, login.confluence_fs, exe_data)
     input.execute_strategies()
     
