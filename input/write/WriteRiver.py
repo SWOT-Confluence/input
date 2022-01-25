@@ -145,7 +145,7 @@ class WriteRiver(WriteStrategy):
         time_str.leap_second = "YYYY-MM-DD hh:mm:ss"
         time_str.comment = "Time string giving UTC time. The format is " \
             + "YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time."
-        time_str[:] = stringtochar(data["node"]["time_str"].astype("S20"))
+        time_str[:] = stringtochar(data["node"]["time_str"])
 
         dxa = dataset.createVariable("d_x_area", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)

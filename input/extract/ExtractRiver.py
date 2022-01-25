@@ -286,5 +286,5 @@ def create_node_dict(nx, nt):
         "n_good_pix" : np.full((nx, nt), -99999999, int),
         "xovr_cal_q" : np.full((nx, nt), -999, int),
         "time": np.full((nx, nt), np.nan, dtype=np.float64),
-        "time_str": np.full((nx, nt), np.nan, dtype=str)
+        "time_str": np.full((nx, nt), np.nan, dtype="S20")
     }
