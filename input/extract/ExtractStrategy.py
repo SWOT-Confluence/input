@@ -39,8 +39,8 @@ class ExtractStrategy(metaclass=ABCMeta):
         """
         
         self.confluence_fs = confluence_fs        
-        # self.cycle_data = extract_passes(int(str(swot_id)[0]), self.confluence_fs)
-        self.cycle_data = self.extract_passes_local(int(str(swot_id)[0]))    # local
+        self.cycle_data = self.extract_passes(int(str(swot_id)[0]))
+        # self.cycle_data = self.extract_passes_local(int(str(swot_id)[0]))    # local
         self.obs_times = []
     
     @classmethod
