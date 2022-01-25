@@ -25,6 +25,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         retrieve pass and cycle identifiers for continent from shapefiles.
     """
     
+    # LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
     CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
                     7: "NA", 8: "NA", 9: "NA"}
     
