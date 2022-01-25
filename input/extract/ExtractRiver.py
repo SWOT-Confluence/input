@@ -60,7 +60,7 @@ class ExtractRiver(ExtractStrategy):
         retrieve SWOT Lake shapefiles
     """
     
-    # LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     

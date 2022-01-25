@@ -45,7 +45,7 @@ class ExtractLake(ExtractStrategy):
         retrieve SWOT Lake shapefiles
     """
     
-    # LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/lake")    # local
+    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/lake")    # local
     LAKE_VARS = ["lake_id", "time_str", "delta_s_q"]
     
     def __init__(self, confluence_fs, lake_id):
