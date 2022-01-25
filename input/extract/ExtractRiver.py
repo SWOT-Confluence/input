@@ -60,8 +60,7 @@ class ExtractRiver(ExtractStrategy):
         retrieve SWOT Lake shapefiles
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
-    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/river")
+    # LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/river")    # local
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     
@@ -180,8 +179,8 @@ class ExtractRiver(ExtractStrategy):
         """
         
         # Load and locate reach identifier data
-        # df = gpd.read_file(f"s3://{node_file}")
-        df = gpd.read_file(node_file)    # local
+        df = gpd.read_file(f"s3://{node_file}")
+        # df = gpd.read_file(node_file)    # local
         
         # Get node identifiers for reach in dataframe
         df = df[df["node_id"].isin(self.node_ids)]
@@ -206,8 +205,8 @@ class ExtractRiver(ExtractStrategy):
         """
         
         # Load and locate reach identifier data
-        # df = gpd.read_file(f"s3://{reach_file}")
-        df = gpd.read_file(reach_file)    # local
+        df = gpd.read_file(f"s3://{reach_file}")
+        # df = gpd.read_file(reach_file)    # local
         df = df.loc[df["reach_id"] == self.reach_id]
         if not df.empty:
             # Append data into dictionary numpy arrays

@@ -3,6 +3,11 @@
 The Input module logs into PO.DAAC AWS S3 infrastructure (TODO) and the 
 Confluence S3 infrastructure. The Input module extracts SWOT observations and
 formats them as one NetCDF per reach.
+
+Command line arguments:
+[1] JSON file name, e.g. -> "reach_node.json" or "lake.json"
+[2] Context of run, e.g. -> "lake" or "river"
+DEFAULT json file is "reach_node.json" and runs in "river" context.
 """
 
 # Standard imports
@@ -93,7 +98,7 @@ def main():
     
     # Create Input and set execution strategy
     input = select_strategies(context, login.confluence_fs, exe_data)
-    input.execute_strategies_local()
+    input.execute_strategies()
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")

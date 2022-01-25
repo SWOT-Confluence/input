@@ -45,8 +45,7 @@ class ExtractLake(ExtractStrategy):
         retrieve SWOT Lake shapefiles
     """
     
-    LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/lake")    # local
-    LOCAL_INPUT = Path("/home/nikki/Documents/confluence/workspace/input/data/shapefiles/swot/lake")
+    # LOCAL_INPUT = Path("/mnt/data/shapefiles/swot/lake")    # local
     LAKE_VARS = ["lake_id", "time_str", "delta_s_q"]
     
     def __init__(self, confluence_fs, lake_id):
@@ -126,8 +125,8 @@ class ExtractLake(ExtractStrategy):
         boolean indicator of data found for reach
         """
         
-        # df = gpd.read_file(f"s3://{lake_file}")
-        df = gpd.read_file(lake_file)    # local
+        df = gpd.read_file(f"s3://{lake_file}")
+        # df = gpd.read_file(lake_file)    # local
         df = df.loc[df["lake_id"] == self.lake_id]
         if not df.empty:
             # Append data into dictionary numpy arrays
