@@ -68,11 +68,11 @@ def select_strategies(context, confluence_fs, exe_data, cycle_pass_json):
     """
     
     if context == "river":
-        er = ExtractRiver(confluence_fs, exe_data, cycle_pass_json)
+        er = ExtractRiver(confluence_fs, exe_data, DATA / cycle_pass_json)
         ew = WriteRiver(exe_data[0], DATA, exe_data[1])
         input = Input(er, ew)
     elif context == "lake": 
-        el = ExtractLake(confluence_fs, exe_data, cycle_pass_json)
+        el = ExtractLake(confluence_fs, exe_data, DATA / cycle_pass_json)
         wl = WriteLake(exe_data, DATA)
         input = Input(el, wl)
     else:
