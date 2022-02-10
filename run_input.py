@@ -46,7 +46,7 @@ def get_exe_data(input_json):
             reach_data = json.load(json_file)[index]
         return reach_data
 
-def select_strategies(context, confluence_fs, exe_data):
+def select_strategies(context, confluence_fs, exe_data, cycle_pass_json):
     """Define and set strategies to execute Input operations.
     
     Program exits if context is not set.
@@ -59,6 +59,8 @@ def select_strategies(context, confluence_fs, exe_data):
         references Confluence S3 buckets
     exe_data: list
         list of data to indicate what to execute on
+    cycle_pass_json: Path
+        path to cycle pass JSON file
         
     Returns
     -------
@@ -66,11 +68,11 @@ def select_strategies(context, confluence_fs, exe_data):
     """
     
     if context == "river":
-        er = ExtractRiver(confluence_fs, exe_data[0], exe_data[1])
+        er = ExtractRiver(confluence_fs, exe_data, cycle_pass_json)
         ew = WriteRiver(exe_data[0], DATA, exe_data[1])
         input = Input(er, ew)
     elif context == "lake": 
-        el = ExtractLake(confluence_fs, exe_data)
+        el = ExtractLake(confluence_fs, exe_data, cycle_pass_json)
         wl = WriteLake(exe_data, DATA)
         input = Input(el, wl)
     else:
@@ -86,9 +88,11 @@ def main():
     # Store command line arguments
     try:
         input_json = sys.argv[1]
-        context = sys.argv[2]
+        cycle_pass_json = sys.argv[2]
+        context = sys.argv[3]
     except IndexError:
         input_json = "reach_node.json"
+        cycle_pass_json = "cycle_passes.json"
         context = "river"
     exe_data = get_exe_data(input_json)
 
@@ -98,7 +102,7 @@ def main():
     
     # Create Input and set execution strategy
     print(f"Extracting and writing {context} data for identifier: {exe_data[0]}.")
-    input = select_strategies(context, login.confluence_fs, exe_data)
+    input = select_strategies(context, login.confluence_fs, exe_data, cycle_pass_json)
     input.execute_strategies()
     
     end = datetime.now()

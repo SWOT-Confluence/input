@@ -108,14 +108,12 @@ class WriteStrategy:
             list of string cycle/pass identifiers
         """
         
-        dataset.createDimension('nchars', 10)
-        obs = dataset.createVariable("observations", "S1", ("nt", "nchars"))
+        obs = dataset.createVariable("observations", "i4", ("nt",))
         obs.units = "pass"
-        obs.long_name = "cycle/pass observations"
-        obs.comment = "A list of cycle and pass numeric identifiers that " \
-            + "identify each reach and node observation. An array element " \
-            + "is comprised of 'cycle/pass' as a string value."
-        obs[:] = stringtochar(np.array(obs_times, dtype="S10"))
+        obs.long_name = "pass number that indicates cycle/pass observations"
+        obs.comment = "A list of pass numbers that identify each reach and " \
+            + "node observation."
+        obs[:] = np.array(obs_times, dtype=np.int32)
     
     @abstractmethod
     def write_data(self, dataset, data):

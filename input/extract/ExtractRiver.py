@@ -63,21 +63,21 @@ class ExtractRiver(ExtractStrategy):
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     
-    def __init__(self, confluence_fs, reach_id, node_ids):
+    def __init__(self, confluence_fs, reach_data, cycle_pass_json):
         """
         Parameters
         ----------
         confluence_fs: S3FileSystem
             references Confluence S3 buckets
-        reach_id: str
-            string reach identifier
-        node_ids: list
-            list of string node identifiers
+        reach_data: list
+            list with [0] as reach id and [1] as node id list
+        cycle_pass_json: Path
+            path to cycle pass JSON file
         """
         
-        super().__init__(confluence_fs, reach_id)
-        self.reach_id = reach_id
-        self.node_ids = np.array(node_ids, dtype=str)  
+        super().__init__(confluence_fs, reach_data[0], cycle_pass_json)
+        self.reach_id = reach_data[0]
+        self.node_ids = np.array(reach_data[1], dtype=str)  
         self.data = {
             "reach": { key: np.array([]) for key in self.REACH_VARS },
             "node": {}
@@ -112,17 +112,20 @@ class ExtractRiver(ExtractStrategy):
         # Extract reach data
         cycles = list(self.cycle_data.keys())
         cycles.sort()
+        cycle_pass = []
         for c in cycles:
             for p in self.cycle_data[c]:
                 reach_file = self.confluence_fs.glob(f"confluence-swot/*_reach_{c}_{p}_*.shp")[0]
                 extracted = self.extract_reach(reach_file)
-                if extracted: self.obs_times.append(f"{c}/{p}")
+                if extracted: 
+                    cycle_pass.append(f"{c}_{p}")
+                    self.obs_times.append(self.pass_data[f"{c}_{p}"])
         
         # Extract node data
-        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
-        for t in range(len(self.obs_times)):
-            c = self.obs_times[t].split('/')[0]
-            p = self.obs_times[t].split('/')[1]
+        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(cycle_pass))       
+        for t in range(len(cycle_pass)):
+            c = cycle_pass[t].split('_')[0]
+            p = cycle_pass[t].split('_')[1]
             node_file = self.confluence_fs.glob(f"confluence-swot/*_node_{c}_{p}_*.shp")[0]
             self.extract_node(node_file, t)
             

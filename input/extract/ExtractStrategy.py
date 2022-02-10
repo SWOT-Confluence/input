@@ -1,6 +1,6 @@
 # Standard imports
 from abc import ABCMeta, abstractmethod
-from pathlib import Path
+import json
 
 # Class
 class ExtractStrategy(metaclass=ABCMeta):
@@ -29,7 +29,7 @@ class ExtractStrategy(metaclass=ABCMeta):
     CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
                     7: "NA", 8: "NA", 9: "NA"}
     
-    def __init__(self, confluence_fs, swot_id):
+    def __init__(self, confluence_fs, swot_id, cycle_pass_json):
         """
         Parameters
         ----------
@@ -37,12 +37,16 @@ class ExtractStrategy(metaclass=ABCMeta):
             references Confluence S3 buckets
         swot_id: int
             unique SWOT identifier (identifies continent)
+        cycle_pass_json: Path
+            path to cycle pass JSON file
         """
         
         self.confluence_fs = confluence_fs        
         self.cycle_data = self.extract_passes(int(str(swot_id)[0]))
         # self.cycle_data = self.extract_passes_local(int(str(swot_id)[0]))    # local
         self.obs_times = []
+        with open(cycle_pass_json, 'r') as jf:
+            self.pass_data = json.load(jf)
     
     @classmethod
     def __subclasshook__(cls, subclass):

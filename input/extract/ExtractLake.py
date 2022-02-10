@@ -47,7 +47,7 @@ class ExtractLake(ExtractStrategy):
     
     LAKE_VARS = ["lake_id", "time_str", "delta_s_q"]
     
-    def __init__(self, confluence_fs, lake_id):
+    def __init__(self, confluence_fs, lake_id, cycle_pass_json):
         """
         Parameters
         ----------
@@ -55,9 +55,11 @@ class ExtractLake(ExtractStrategy):
             references Confluence S3 buckets
         lake_id: str
             string lake identifier
+        cycle_pass_json: Path
+            path to cycle pass JSON file
         """
         
-        super().__init__(confluence_fs, lake_id)
+        super().__init__(confluence_fs, lake_id, cycle_pass_json)
         self.lake_id = lake_id
         self.data = { key: np.array([]) for key in self.LAKE_VARS }
         
@@ -96,7 +98,7 @@ class ExtractLake(ExtractStrategy):
             for p in self.cycle_data[c]:
                 lake_file = self.confluence_fs.glob(f"confluence-swot/*_Prior_{c}_{p}_*.shp")[0]
                 extracted = self.extract_lake(lake_file)
-                if extracted: self.obs_times.append(f"{c}/{p}")
+                if extracted: self.obs_times.append(self.pass_data[f"{c}_{p}"])
         
     def extract_local(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
