@@ -43,7 +43,7 @@ class TestWrite(unittest.TestCase):
         df_list = reach_dfs + node_dfs  
         ExtractRiver.LOCAL_INPUT = Path(__file__).parent / "test_data"
         mock_fs.glob.side_effect = file_list
-        ext = ExtractRiver(mock_fs, self.REACH_ID, self.NODE_LIST)
+        ext = ExtractRiver(mock_fs, [self.REACH_ID, self.NODE_LIST], Path(__file__).parent / "test_json" / "cycle_passes-river-test.json")
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = df_list
             ext.extract()
@@ -61,7 +61,7 @@ class TestWrite(unittest.TestCase):
         self.assertEqual(5, dataset.dimensions["nx"].size)
         self.assertEqual(5, dataset.dimensions["nt"].size)
         self.assertEqual("NA", dataset.continent)
-        assert_array_equal(["1/441", "1/456", "2/441", "2/456", "3/441"], chartostring(dataset["observations"][:]))
+        assert_array_equal([1, 2, 3, 4, 5], dataset["observations"][:])
         
         # Reach data
         reach = dataset["reach"]
@@ -136,8 +136,8 @@ class TestWrite(unittest.TestCase):
         lake_dfs = [gpd.read_file(str(parent / lake_file)) for lake_file in lake_files]
         
         ExtractLake.LOCAL_INPUT = Path(__file__).parent / "test_data"
-        mock_fs.glob.side_effect = lake_files
-        ext = ExtractLake(mock_fs, self.LAKE_ID)
+        mock_fs.glob.return_value = lake_files
+        ext = ExtractLake(mock_fs, self.LAKE_ID, Path(__file__).parent / "test_json" / "cycle_passes-lake-test.json")
         with patch.object(gpd, "read_file") as mock_gpd:
             mock_gpd.side_effect = lake_dfs
             ext.extract()
@@ -154,7 +154,7 @@ class TestWrite(unittest.TestCase):
         # Global data
         self.assertEqual(5, dataset.dimensions["nt"].size)
         self.assertEqual("NA", dataset.continent)
-        assert_array_equal(["1/1001", "1/1008", "1/1015", "1/1022", "1/1029"], chartostring(dataset["observations"][:]))
+        assert_array_equal([1, 2, 3, 4, 5], dataset["observations"][:])
         
         # Lake data
         expected = np.array(['2008-10-01', '2008-10-08', '2008-10-15', '2008-10-22', '2008-10-29'])
