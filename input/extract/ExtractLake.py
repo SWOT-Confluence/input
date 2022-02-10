@@ -109,7 +109,7 @@ class ExtractLake(ExtractStrategy):
             for p in self.cycle_data[c]:
                 lake_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_Prior_{c}_{p}_*.shp"))[0])
                 extracted = self.extract_lake(lake_file)
-                if extracted: self.obs_times.append(f"{c}/{p}")
+                if extracted: self.obs_times.append(self.pass_data[f"{c}_{p}"])
                 
     def extract_lake(self, lake_file):
         """Extract lake data from lake_file SWOT shapefile.

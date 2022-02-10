@@ -145,17 +145,20 @@ class ExtractRiver(ExtractStrategy):
         # Extract reach data
         cycles = list(self.cycle_data.keys())
         cycles.sort()
+        cycle_pass = []
         for c in cycles:
             for p in self.cycle_data[c]:
                 reach_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_reach_{c}_{p}_*.shp"))[0])
                 extracted = self.extract_reach(reach_file)
-                if extracted: self.obs_times.append(f"{c}/{p}")
-        
+                if extracted: 
+                    cycle_pass.append(f"{c}_{p}")
+                    self.obs_times.append(self.pass_data[f"{c}_{p}"])
+                    
         # Extract node data
-        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))       
-        for t in range(len(self.obs_times)):
-            c = self.obs_times[t].split('/')[0]
-            p = self.obs_times[t].split('/')[1]
+        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(cycle_pass))       
+        for t in range(len(cycle_pass)):
+            c = cycle_pass[t].split('_')[0]
+            p = cycle_pass[t].split('_')[1]
             node_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_node_{c}_{p}_*.shp"))[0])
             self.extract_node(node_file, t)
             
