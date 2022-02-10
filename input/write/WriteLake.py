@@ -68,6 +68,7 @@ class WriteLake(WriteStrategy):
             dictionary of SWOT data variables
         """
         
+        dataset.createDimension('nchars', 10)
         lake_id_v = dataset.createVariable("lake_id", "S1", ("nchars",),
                                            fill_value=self.STR_FILL)
         lake_id_v.long_name = "lake ID(s) from prior database"
