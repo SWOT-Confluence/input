@@ -11,42 +11,104 @@ DEFAULT json file is "reach_node.json" and runs in "river" context.
 """
 
 # Standard imports
+import argparse
 from datetime import datetime
 import json
 import os
 from pathlib import Path
 import sys
 
+# Third-party imports
+import boto3
+import botocore
+
 # Local imports
 from input.Input import Input
 from input.extract.ExtractLake import ExtractLake
 from input.extract.ExtractRiver import ExtractRiver
-from input.Login import Login
+from input.extract.exceptions import ReachNodeMismatch
 from input.write.WriteLake import WriteLake
 from input.write.WriteRiver import WriteRiver
 
-# Constants
-DATA = Path("/mnt/data")
+def create_args():
+    """Create and return argparser with arguments."""
 
-def get_exe_data(input_json):
+    arg_parser = argparse.ArgumentParser(description="Retrieve a list of S3 URIs")
+    arg_parser.add_argument("-i",
+                            "--index",
+                            type=int,
+                            help="Index to specify input data to execute on, value of -235 indicates AWS selection")
+    arg_parser.add_argument("-r",
+                            "--rnjson",
+                            type=str,
+                            help="Path to the reach node json file",
+                            default="reach_node.json")
+    arg_parser.add_argument("-p",
+                            "--cpjson",
+                            type=str,
+                            help="Path to the cycle pass json file",
+                            default="cycle_pass.json")
+    arg_parser.add_argument("-s",
+                            "--shpjson",
+                            type=str,
+                            help="Path to the shapefile list json file",
+                            default="reach_node.json")
+    arg_parser.add_argument("-c",
+                            "--context",
+                            type=str,
+                            choices=["river", "lake"],
+                            help="Context to retrieve data for: 'river' or 'lake'",
+                            default="river")
+    arg_parser.add_argument("-d",
+                            "--directory",
+                            type=str,
+                            help="Directory to output data to")
+    arg_parser.add_argument("-l",
+                            "--local",
+                            action='store_true',
+                            help="Indicates local run of program")
+    arg_parser.add_argument("-f",
+                            "--shapefiledir",
+                            type=str,
+                            help="Directory of local shapefiles")
+    return arg_parser
+
+def get_creds():
+    """Return AWS S3 credentials to access S3 shapefiles."""
+    
+    ssm_client = boto3.client('ssm')
+    creds = {}
+    try:
+        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)
+        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)
+        creds["token"] = ssm_client.get_parameter(Name="sessionToken", WithDecryption=True)
+    except botocore.exceptions.ClientError:
+        raise
+    else:
+        return creds
+    
+def get_reach_data(index, json_file):
         """Retrun dictionary of data required to execution input operations.
         
         Parameters
         ----------
-        input_json: str
-            string name of json file used to detect what to execute on
+        index: int
+            integer to index JSON data on
+        json_file: Path
+            path to JSON file to pull data from
             
         Returns
         -------
         dictionary of execution data
         """
         
-        index = int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
-        with open(DATA/ input_json) as json_file:
-            reach_data = json.load(json_file)[index]
+        i = int(index) if index != "-235" else os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX")
+
+        with open(json_file) as json_file:
+            reach_data = json.load(json_file)[i]
         return reach_data
 
-def select_strategies(context, confluence_fs, exe_data, cycle_pass_json):
+def select_strategies(context, reach_data, shapefiles, cycle_pass, output_dir, creds=None):
     """Define and set strategies to execute Input operations.
     
     Program exits if context is not set.
@@ -55,12 +117,16 @@ def select_strategies(context, confluence_fs, exe_data, cycle_pass_json):
     ----------
     context: str
         string indicator of data type
-    confluence_fs: S3FileSystem
-        references Confluence S3 buckets
-    exe_data: list
+    shapefiles: list
+        list of SWOT shapefiles
+    reach-data: list
         list of data to indicate what to execute on
-    cycle_pass_json: Path
-        path to cycle pass JSON file
+    cycle_pass: dict
+        dict of cycle pass json data
+    output_dir: Path
+        Path to output directory
+    creds: dict
+        dict of AWS S3 credentials
         
     Returns
     -------
@@ -68,13 +134,13 @@ def select_strategies(context, confluence_fs, exe_data, cycle_pass_json):
     """
     
     if context == "river":
-        er = ExtractRiver(confluence_fs, exe_data, DATA / cycle_pass_json)
-        ew = WriteRiver(exe_data[0], DATA, exe_data[1])
+        er = ExtractRiver(reach_data[0], shapefiles, cycle_pass, creds, reach_data[1])
+        ew = WriteRiver(reach_data[0], output_dir, reach_data[1])
         input = Input(er, ew)
-    elif context == "lake": 
-        el = ExtractLake(confluence_fs, exe_data, DATA / cycle_pass_json)
-        wl = WriteLake(exe_data, DATA)
-        input = Input(el, wl)
+    # elif context == "lake": 
+    #     el = ExtractLake(confluence_fs, exe_data, DATA / cycle_pass_json)
+    #     wl = WriteLake(exe_data, DATA)
+    #     input = Input(el, wl)
     else:
         print("Incorrect context selected to execute input operations.")
         sys.exit(1)
@@ -84,26 +150,46 @@ def main():
     """Main method to execute Input class methods."""
     
     start = datetime.now()
-    
-    # Store command line arguments
-    try:
-        input_json = sys.argv[1]
-        cycle_pass_json = sys.argv[2]
-        context = sys.argv[3]
-    except IndexError:
-        input_json = "reach_node.json"
-        cycle_pass_json = "cycle_passes.json"
-        context = "river"
-    exe_data = get_exe_data(input_json)
 
-    # Log into S3
-    login = Login()
-    login.login()
+    # Command line arguments
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
+        
+    # Get input data to run on
+    reach_data = get_reach_data(args.index, args.rnjson)
     
-    # Create Input and set execution strategy
-    print(f"Extracting and writing {context} data for identifier: {exe_data[0]}.")
-    input = select_strategies(context, login.confluence_fs, exe_data, cycle_pass_json)
-    input.execute_strategies()
+    # Get cycle pass data
+    with open(args.cpjson) as jf:
+        cycle_pass = json.load(jf)
+    
+    # Get shapefiles
+    with open(args.shpjson) as jf:
+        shapefiles = json.load(jf)
+        
+    # Select strategy to run based on context
+    if not args.local:
+        print("Obtaining S3 credentials.")
+        try:
+            creds = get_creds()
+        except botocore.exceptions.ClientError:
+            print("Error trying to retreive data from parameter store.")
+            print("Exiting program...")
+            exit()
+        input = select_strategies(args.context, reach_data, shapefiles, \
+            cycle_pass, Path(args.directory), creds)
+    else:
+        input = select_strategies(args.context, reach_data, shapefiles, \
+            cycle_pass, Path(args.directory))
+    
+    # Execute strategies to retrieve SWOT data and save as a NETCDF
+    try:    
+        print("Executing input strategies.")
+        input.execute_strategies()
+    except ReachNodeMismatch:
+        print("The observation times for reaches did not match the observation " \
+            + "times for nodes.\nThis indicates an error and you should " \
+            + "compare the cycle/passes for reaches and nodes.\nExiting program...")
+        exit()
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")

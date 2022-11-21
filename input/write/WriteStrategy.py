@@ -144,7 +144,7 @@ class WriteStrategy:
         """
 
         # NetCDF4 dataset
-        swot_file = self.output_dir / "swot" / f"{self.swot_id}_SWOT.nc"
+        swot_file = self.output_dir / f"{self.swot_id}_SWOT.nc"
         dataset = Dataset(swot_file, 'w', format="NETCDF4")
         self.define_global_attrs(dataset)
 
