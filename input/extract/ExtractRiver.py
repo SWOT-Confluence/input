@@ -20,6 +20,7 @@ from pathlib import Path
 import zipfile
 
 # Third-party imports
+import fsspec
 import pandas as pd
 import numpy as np
 import shapefile
@@ -109,7 +110,12 @@ class ExtractRiver(ExtractStrategy):
         # Extract reach data
         rch_shpfile = [ shpfile for shpfile in self.shapefiles if "Reach" in shpfile ]
         for shpfile in rch_shpfile:
-            df = self.get_df(shpfile)
+            if self.creds: 
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+                
             extracted = self.extract_reach(df)
             if extracted:
                 c = Path(shpfile).name.split('_')[5]
@@ -121,7 +127,11 @@ class ExtractRiver(ExtractStrategy):
         self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
         t = 0
         for shpfile in node_shpfile:
-            df = self.get_df(shpfile)
+            if self.creds: 
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile)
             extracted = self.extract_node(df, t)
             if extracted:
                 t += 1
@@ -185,13 +195,24 @@ class ExtractRiver(ExtractStrategy):
             return True
         else:
             return False
+        
+    def get_fsspec(self, shpfile):
+        """Return dataframe from S3 hosted SWOT shapefile."""
+        
+        # Determine execution environment
+        with fsspec.open(f"{shpfile}", mode="rb", anon=False, 
+                                key=self.creds["access_key"], 
+                                secret=self.creds["secret"], 
+                                token=self.creds["token"]) as shp:
+            dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+            df = self.get_df(shp, dbf)
+        return df      
     
-    def get_df(self, shpfile):
+    def get_df(self, shpfile, dbf_file):
         """Return a dataframe of SWOT data from shapefile."""
         
         # Locate and open DBF file            
         zip_file = zipfile.ZipFile(shpfile, 'r')
-        dbf_file = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
         with zip_file.open(dbf_file) as dbf:
             sf = shapefile.Reader(dbf=dbf)
             fieldnames = [f[0] for f in sf.fields[1:]]
