@@ -79,9 +79,9 @@ def get_creds():
     ssm_client = boto3.client('ssm')
     creds = {}
     try:
-        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)
-        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)
-        creds["token"] = ssm_client.get_parameter(Name="sessionToken", WithDecryption=True)
+        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
+        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
+        creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
     except botocore.exceptions.ClientError:
         raise
     else:
@@ -171,8 +171,9 @@ def main():
         print("Obtaining S3 credentials.")
         try:
             creds = get_creds()
-        except botocore.exceptions.ClientError:
+        except botocore.exceptions.ClientError as error:
             print("Error trying to retreive data from parameter store.")
+            print(error)
             print("Exiting program...")
             exit()
         input = select_strategies(args.context, exe_data, shapefiles, \

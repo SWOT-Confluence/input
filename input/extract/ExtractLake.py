@@ -61,7 +61,7 @@ class ExtractLake(ExtractStrategy):
         
         for shpfile in self.shapefiles:
             if self.creds:
-                df = self.get_fsspec(shapefile)
+                df = self.get_fsspec(shpfile)
             else:
                 dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
                 df = self.get_df(shpfile, dbf)

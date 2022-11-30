@@ -67,9 +67,10 @@ class ExtractStrategy(metaclass=ABCMeta):
         
         # Determine execution environment
         with fsspec.open(f"{shpfile}", mode="rb", anon=False, 
-                                key=self.creds["access_key"], 
-                                secret=self.creds["secret"], 
-                                token=self.creds["token"]) as shp:
+                            key=self.creds["access_key"], 
+                            secret=self.creds["secret"], 
+                            token=self.creds["token"]) as shp:
+            
             dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
             df = self.get_df(shp, dbf)
         return df      
