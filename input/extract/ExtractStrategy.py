@@ -1,6 +1,11 @@
 # Standard imports
 from abc import ABCMeta, abstractmethod
-import json
+import zipfile
+
+# Third-party imports
+import fsspec
+import pandas as pd
+import shapefile
 
 # Class
 class ExtractStrategy(metaclass=ABCMeta):
@@ -56,3 +61,27 @@ class ExtractStrategy(metaclass=ABCMeta):
         """Extracts data from confluence_fs S3 bucket and stores in data dict."""
 
         raise NotImplementedError
+    
+    def get_fsspec(self, shpfile):
+        """Return dataframe from S3 hosted SWOT shapefile."""
+        
+        # Determine execution environment
+        with fsspec.open(f"{shpfile}", mode="rb", anon=False, 
+                                key=self.creds["access_key"], 
+                                secret=self.creds["secret"], 
+                                token=self.creds["token"]) as shp:
+            dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+            df = self.get_df(shp, dbf)
+        return df      
+    
+    def get_df(self, shpfile, dbf_file):
+        """Return a dataframe of SWOT data from shapefile."""
+        
+        # Locate and open DBF file            
+        zip_file = zipfile.ZipFile(shpfile, 'r')
+        with zip_file.open(dbf_file) as dbf:
+            sf = shapefile.Reader(dbf=dbf)
+            fieldnames = [f[0] for f in sf.fields[1:]]
+            records = sf.records()
+            df = pd.DataFrame(columns=fieldnames, data=records)
+        return df

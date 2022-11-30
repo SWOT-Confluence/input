@@ -15,15 +15,10 @@ create_node_dict(nx, nt)
 """
 
 # Standard imports
-import glob
 from pathlib import Path
-import zipfile
 
 # Third-party imports
-import fsspec
-import pandas as pd
 import numpy as np
-import shapefile
 
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
@@ -56,8 +51,6 @@ class ExtractRiver(ExtractStrategy):
         extract node level data from shapefile found at node_file path.
     extract_reach(reach_file, time)
         extract reach level data from shapefile found at reach_file path.
-    retrieve_swot_files(c_id)
-        retrieve SWOT Lake shapefiles
     """
     
     # Constants
@@ -131,7 +124,7 @@ class ExtractRiver(ExtractStrategy):
                 df = self.get_fsspec(shpfile)
             else:
                 dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
-                df = self.get_df(shpfile)
+                df = self.get_df(shpfile, dbf)
             extracted = self.extract_node(df, t)
             if extracted:
                 t += 1
@@ -195,30 +188,6 @@ class ExtractRiver(ExtractStrategy):
             return True
         else:
             return False
-        
-    def get_fsspec(self, shpfile):
-        """Return dataframe from S3 hosted SWOT shapefile."""
-        
-        # Determine execution environment
-        with fsspec.open(f"{shpfile}", mode="rb", anon=False, 
-                                key=self.creds["access_key"], 
-                                secret=self.creds["secret"], 
-                                token=self.creds["token"]) as shp:
-            dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
-            df = self.get_df(shp, dbf)
-        return df      
-    
-    def get_df(self, shpfile, dbf_file):
-        """Return a dataframe of SWOT data from shapefile."""
-        
-        # Locate and open DBF file            
-        zip_file = zipfile.ZipFile(shpfile, 'r')
-        with zip_file.open(dbf_file) as dbf:
-            sf = shapefile.Reader(dbf=dbf)
-            fieldnames = [f[0] for f in sf.fields[1:]]
-            records = sf.records()
-            df = pd.DataFrame(columns=fieldnames, data=records)
-        return df
                 
 # Functions
 def calculate_d_x_a(wse, width):

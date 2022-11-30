@@ -3,7 +3,7 @@ from abc import abstractmethod
 from datetime import datetime
 
 # Third-party imports
-from netCDF4 import Dataset, stringtochar
+from netCDF4 import Dataset
 import numpy as np
 
 class WriteStrategy:
