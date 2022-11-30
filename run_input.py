@@ -41,7 +41,7 @@ def create_args():
     arg_parser.add_argument("-r",
                             "--rnjson",
                             type=str,
-                            help="Path to the reach node json file",
+                            help="Path to the reach node json file or lakes json file",
                             default="reach_node.json")
     arg_parser.add_argument("-p",
                             "--cpjson",
@@ -79,15 +79,15 @@ def get_creds():
     ssm_client = boto3.client('ssm')
     creds = {}
     try:
-        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)['Parameter']['Value']
-        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)['Parameter']['Value']
-        creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)['Parameter']['Value']
+        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)
+        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)
+        creds["token"] = ssm_client.get_parameter(Name="sessionToken", WithDecryption=True)
     except botocore.exceptions.ClientError:
         raise
     else:
         return creds
     
-def get_reach_data(index, json_file):
+def get_exe_data(index, json_file):
         """Retrun dictionary of data required to execution input operations.
         
         Parameters
@@ -105,10 +105,10 @@ def get_reach_data(index, json_file):
         i = int(index) if index != "-235" else os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX")
 
         with open(json_file) as json_file:
-            reach_data = json.load(json_file)[i]
-        return reach_data
+            data = json.load(json_file)[i]
+        return data
 
-def select_strategies(context, reach_data, shapefiles, cycle_pass, output_dir, creds=None):
+def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, creds=None):
     """Define and set strategies to execute Input operations.
     
     Program exits if context is not set.
@@ -134,13 +134,13 @@ def select_strategies(context, reach_data, shapefiles, cycle_pass, output_dir, c
     """
     
     if context == "river":
-        er = ExtractRiver(reach_data[0], shapefiles, cycle_pass, creds, reach_data[1])
-        ew = WriteRiver(reach_data[0], output_dir, reach_data[1])
+        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, creds, exe_data[1])
+        ew = WriteRiver(exe_data[0], output_dir, exe_data[1])
         input = Input(er, ew)
-    # elif context == "lake": 
-    #     el = ExtractLake(confluence_fs, exe_data, DATA / cycle_pass_json)
-    #     wl = WriteLake(exe_data, DATA)
-    #     input = Input(el, wl)
+    elif context == "lake": 
+        el = ExtractLake(exe_data, shapefiles, cycle_pass, creds)
+        wl = WriteLake(exe_data, output_dir)
+        input = Input(el, wl)
     else:
         print("Incorrect context selected to execute input operations.")
         sys.exit(1)
@@ -156,7 +156,7 @@ def main():
     args = arg_parser.parse_args()
         
     # Get input data to run on
-    reach_data = get_reach_data(args.index, args.rnjson)
+    exe_data = get_exe_data(args.index, args.rnjson)
     
     # Get cycle pass data
     with open(args.cpjson) as jf:
@@ -175,16 +175,17 @@ def main():
             print("Error trying to retreive data from parameter store.")
             print("Exiting program...")
             exit()
-        input = select_strategies(args.context, reach_data, shapefiles, \
+        input = select_strategies(args.context, exe_data, shapefiles, \
             cycle_pass, Path(args.directory), creds)
     else:
-        input = select_strategies(args.context, reach_data, shapefiles, \
+        input = select_strategies(args.context, exe_data, shapefiles, \
             cycle_pass, Path(args.directory))
     
     # Execute strategies to retrieve SWOT data and save as a NETCDF
     try:    
         print("Executing input strategies.")
         input.execute_strategies()
+        print(f"File written for: {input.write_strategy.swot_id}.")
     except ReachNodeMismatch:
         print("The observation times for reaches did not match the observation " \
             + "times for nodes.\nThis indicates an error and you should " \

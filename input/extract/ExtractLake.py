@@ -4,24 +4,18 @@ it in Numpy arrays organized by lake identifier.
 Class
 -----
 Extract
-    A class that extracts and concatenates SWOT observations from shapefiles.
-
-Functions
----------
-
-    
+    A class that extracts and concatenates SWOT observations from shapefiles.  
 """
 
 # Standard imports
-import glob
 from pathlib import Path
 
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
 
 # Third-party imports
-import geopandas as gpd
 import numpy as np
+import shapefile
 
 class ExtractLake(ExtractStrategy):
     """A class that extends ExtractStrategy to extract lake data.
@@ -41,94 +35,57 @@ class ExtractLake(ExtractStrategy):
         extracts data from S3 bucket shapefiles and stores in data dictionaries
     extract_lake(lake_file)
         extract lake data from lake_file SWOT shapefile
-    retrieve_swot_files(c_id)
-        retrieve SWOT Lake shapefiles
     """
     
     LAKE_VARS = ["lake_id", "time_str", "delta_s_q"]
     
-    def __init__(self, confluence_fs, lake_id, cycle_pass_json):
+    def __init__(self, swot_id, shapefiles, cycle_pass, creds):
         """
         Parameters
         ----------
-        confluence_fs: S3FileSystem
-            references Confluence S3 buckets
-        lake_id: str
-            string lake identifier
-        cycle_pass_json: Path
-            path to cycle pass JSON file
+        swot_id: int
+            unique SWOT identifier (identifies continent)
+        shapefiles: list
+            list of SWOT shapefiles
+        cycle_pass: dict
+            dictionary of cycle pass data
+        creds: dict
+            dictionary of AWS S3 credentials
         """
         
-        super().__init__(confluence_fs, lake_id, cycle_pass_json)
-        self.lake_id = lake_id
+        super().__init__(swot_id, shapefiles, cycle_pass, creds)
         self.data = { key: np.array([]) for key in self.LAKE_VARS }
-        
-    def retrieve_swot_files(self, c_id):
-        """Retrieve SWOT Lake shapefiles.
-        
-        Parameters
-        ----------
-        c_id: int
-            Continent integer identifier
-        """
-        
-        c_abr = self.CONT_LOOKUP[c_id]
-        c_files = [Path(c_file).name for c_file in self.confluence_fs.glob(f"confluence-swot/*Prior*{c_abr}*.shp")]
-        return c_files
-    
-    def retrieve_swot_files_local(self, c_id):
-        """Retrieve SWOT Lake shapefiles.
-        
-        Parameters
-        ----------
-        c_id: int
-            Continent integer identifier
-        """
-        
-        c_abr = self.CONT_LOOKUP[c_id]
-        c_files = [Path(c_file).name for c_file in glob.glob(str(self.LOCAL_INPUT / f"*Prior*{c_abr}*.shp"))]
-        return c_files
         
     def extract(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
         
-        cycles = list(self.cycle_data.keys())
-        cycles.sort()
-        for c in cycles:
-            for p in self.cycle_data[c]:
-                lake_file = self.confluence_fs.glob(f"confluence-swot/*_Prior_{c}_{p}_*.shp")[0]
-                extracted = self.extract_lake(lake_file)
-                if extracted: self.obs_times.append(self.pass_data[f"{c}_{p}"])
-        
-    def extract_local(self):
-        """Extracts data from SWOT shapefiles and stores in data dictionaries."""
-        
-        cycles = list(self.cycle_data.keys())
-        cycles.sort()
-        for c in cycles:
-            for p in self.cycle_data[c]:
-                lake_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_Prior_{c}_{p}_*.shp"))[0])
-                extracted = self.extract_lake(lake_file)
-                if extracted: self.obs_times.append(self.pass_data[f"{c}_{p}"])
+        for shpfile in self.shapefiles:
+            if self.creds:
+                df = self.get_fsspec(shapefile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+            extracted = self.extract_lake(df)
+            if extracted:
+                c = Path(shpfile).name.split('_')[5]
+                p = Path(shpfile).name.split('_')[6]
+                self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
                 
-    def extract_lake(self, lake_file):
+    def extract_lake(self, df):
         """Extract lake data from lake_file SWOT shapefile.
         
         Parameters
         ----------
-        lake_file: Path
-            Path to lake shapefile
+        df: Pandas.DataFrame
+            dataframe of reach data
             
-        Returns
-        -------
         Returns
         -------
         boolean indicator of data found for reach
         """
         
-        df = gpd.read_file(f"s3://{lake_file}")
-        # df = gpd.read_file(lake_file)    # local
-        df = df.loc[df["lake_id"] == self.lake_id]
+        df["lake_id"] = df["lake_id"].astype("string")
+        df = df.loc[df["lake_id"] == self.swot_id]
         if not df.empty:
             # Append data into dictionary numpy arrays
             for var in self.LAKE_VARS:
