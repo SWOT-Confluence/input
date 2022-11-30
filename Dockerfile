@@ -1,5 +1,5 @@
-# Stage 0 - Create from osge/gdal image
-FROM osgeo/gdal as stage0
+# Stage 0 - Create from Python3.9.5 image
+FROM python:3.10.8-slim-buster as stage0
 
 # Stage 1 - Debian dependencies
 FROM stage0 as stage1
