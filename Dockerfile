@@ -1,30 +1,20 @@
 # Stage 0 - Create from Python3.9.5 image
-FROM python:3.10.8-slim-buster as stage0
+# FROM python:3.9-slim-buster as stage0
+FROM python:3.9-slim-buster
 
 # Stage 1 - Debian dependencies
-FROM stage0 as stage1
+# FROM stage0 as stage1
 RUN apt update \
-        && DEBIAN_FRONTEND=noninteractive apt install -y \
-                curl \
-                zip
+        && DEBIAN_FRONTEND=noninteractive apt install -y curl zip python3-dev build-essential libhdf5-serial-dev netcdf-bin libnetcdf-dev
 
-# Stage 2 - Input Python dependencies
-FROM stage1 as stage2
+# # Stage 2 - Input Python dependencies
+# # FROM stage1 as stage2
 COPY requirements.txt /app/requirements.txt
-RUN apt install -y python3.8-venv \
-        && /usr/bin/python3 -m venv /app/env \
+RUN /usr/local/bin/python -m venv /app/env \
         && /app/env/bin/pip install -r /app/requirements.txt
 
-# # Stage 3 - AWS CLI
-FROM stage2 as stage3
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/home/awscliv2.zip" \
-        && unzip /home/awscliv2.zip -d /home \
-        && /home/aws/install \
-        && /usr/local/bin/aws configure set default.region us-west-2
-COPY credentials /root/.aws/credentials
-
 # Stage 5 - Copy and execute module
-FROM stage3 as stage4
+# FROM stage3 as stage4
 COPY ./input /app/input/
 COPY run_input.py /app/run_input.py
 LABEL version="1.0" \
