@@ -76,14 +76,14 @@ def create_args():
 def get_creds():
     """Return AWS S3 credentials to access S3 shapefiles."""
     
-    ssm_client = boto3.client('ssm')
+    ssm_client = boto3.client('ssm', region_name="us-west-2")
     creds = {}
     try:
         creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
         creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
         creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-    except botocore.exceptions.ClientError:
-        raise
+    except botocore.exceptions.ClientError as e:
+        raise e
     else:
         return creds
     
