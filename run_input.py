@@ -175,7 +175,7 @@ def main():
             print("Error trying to retreive data from parameter store.")
             print(error)
             print("Exiting program...")
-            exit()
+            sys.exit(1)
         input = select_strategies(args.context, exe_data, shapefiles, \
             cycle_pass, Path(args.directory), creds)
     else:
@@ -191,7 +191,7 @@ def main():
         print("The observation times for reaches did not match the observation " \
             + "times for nodes.\nThis indicates an error and you should " \
             + "compare the cycle/passes for reaches and nodes.\nExiting program...")
-        exit()
+        sys.exit(1)
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")
