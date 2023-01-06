@@ -6,7 +6,7 @@ import unittest
 
 # Third-party imports
 import numpy as np
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 # Local imports
 from input.extract.ExtractRiver import ExtractRiver, calculate_d_x_a
@@ -19,7 +19,9 @@ class TestExtract(unittest.TestCase):
     RIVER_CYCLE_PASS = { "1_51": 1, "1_372": 2, "2_51": 3, "2_372": 4, "3_51": 5 }
     REACH_ID = "74269900011"
     NODE_LIST = ["74269900010011", "74269900010021", "74269900010031", "74269900010041", "74269900010051"]
-    # LAKE_ID = "7720003433"
+    LAKE_PARENT = Path(__file__).parent / "test_data" / "lake"
+    LAKE_CYCLE_PASS = { "1_1001": 1, "1_1008": 2, "1_1015": 3, "1_1022": 4, "1_1029": 5, "1_1105": 6, "1_1112": 7, "1_1119": 8, "1_1126": 9, "1_1203": 10 }
+    LAKE_ID = "7720003433"
     
     def test_calculate_d_x_a(self):
         """Tests calculate_d_x_a function."""
@@ -93,8 +95,19 @@ class TestExtract(unittest.TestCase):
                 [ 216.322851, 216.415144, 216.400287, 216.758574, 216.507374 ] ]
         assert_array_almost_equal(expected, ext.data["node"]["wse"])
         
-    # def test_extract_lake(self):
-    #     """Tests extract method for lake data."""
+    def test_extract_lake(self):
+        """Tests extract method for lake data."""
+        
+        # Create ExtractRiver object
+        shapefiles = self.get_shapefiles(self.LAKE_PARENT)
+        lake = ExtractLake(self.LAKE_ID, shapefiles, self.LAKE_CYCLE_PASS, None)
+        lake.extract()
+        
+        expected = [ -2.397356e-07, 6.596707e-08, -1.114663e-07, 5.921538e-08, 1.399049e-07, 9.170604e-08, -1.312332e-07, 2.863243e-07, -4.733622e-08, -5.238752e-08 ]
+        assert_array_almost_equal(expected, lake.data["delta_s_q"])
+        
+        expected = [ "2008-10-01", "2008-10-08", "2008-10-15", "2008-10-22", "2008-10-29", "2008-11-05", "2008-11-12", "2008-11-19", "2008-11-26", "2008-12-03" ]
+        assert_array_equal(expected, lake.data["time_str"])
         
     def get_shapefiles(self, sdir):
         with os.scandir(sdir) as entries:
