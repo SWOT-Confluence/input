@@ -15,19 +15,14 @@ create_node_dict(nx, nt)
 """
 
 # Standard imports
-import glob
 from pathlib import Path
 
 # Third-party imports
-import geopandas as gpd
 import numpy as np
 
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
-
-# Constants
-CONT_LOOKUP = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 
-                    7: "NA", 8: "NA", 9: "NA"}
+from input.extract.exceptions import ReachNodeMismatch
 
 # Class
 class ExtractRiver(ExtractStrategy):
@@ -56,32 +51,35 @@ class ExtractRiver(ExtractStrategy):
         extract node level data from shapefile found at node_file path.
     extract_reach(reach_file, time)
         extract reach level data from shapefile found at reach_file path.
-    retrieve_swot_files(c_id)
-        retrieve SWOT Lake shapefiles
     """
     
+    # Constants
     REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
+    FLOAT_FILL = -999999999999
     
-    def __init__(self, confluence_fs, reach_data, cycle_pass_json):
+    def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
         """
         Parameters
         ----------
-        confluence_fs: S3FileSystem
-            references Confluence S3 buckets
-        reach_data: list
-            list with [0] as reach id and [1] as node id list
-        cycle_pass_json: Path
-            path to cycle pass JSON file
+        swot_id: int
+            unique SWOT identifier (identifies continent)
+        shapefiles: list
+            list of SWOT shapefiles
+        cycle_pass: dict
+            dictionary of cycle pass data
+        creds: dict
+            dictionary of AWS S3 credentials
+        node_ids: list
+            list of node identifiers that are associated with reach identifier
         """
         
-        super().__init__(confluence_fs, reach_data[0], cycle_pass_json)
-        self.reach_id = reach_data[0]
-        self.node_ids = np.array(reach_data[1], dtype=str)  
+        super().__init__(swot_id, shapefiles, cycle_pass, creds)
+        self.node_ids = np.array(node_ids)
         self.data = {
             "reach": { key: np.array([]) for key in self.REACH_VARS },
-            "node": {}
-        }   
+            "node": None
+        }
 
     def append_node(self, key, nx):
         """Appends reach level data identified by key to the node level.
@@ -98,69 +96,41 @@ class ExtractRiver(ExtractStrategy):
 
         node_data = np.tile(self.data["reach"][key], (nx, 1))
         self.data["node"][key] = node_data        
-
-    def extract(self):
-        """Extracts data from confluence_fs S3 bucket and stores in data dict.
-        
-        Assumes that nodes will have the same cycle and pass number as the
-        reach.
-        
-        ## TODO: 
-        - Implement PO.DAAC data extraction and storage
-        """
-
-        # Extract reach data
-        cycles = list(self.cycle_data.keys())
-        cycles.sort()
-        cycle_pass = []
-        for c in cycles:
-            for p in self.cycle_data[c]:
-                reach_file = self.confluence_fs.glob(f"confluence-swot/*_reach_{c}_{p}_*.shp")[0]
-                extracted = self.extract_reach(reach_file)
-                if extracted: 
-                    cycle_pass.append(f"{c}_{p}")
-                    self.obs_times.append(self.pass_data[f"{c}_{p}"])
-        
-        # Extract node data
-        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(cycle_pass))       
-        for t in range(len(cycle_pass)):
-            c = cycle_pass[t].split('_')[0]
-            p = cycle_pass[t].split('_')[1]
-            node_file = self.confluence_fs.glob(f"confluence-swot/*_node_{c}_{p}_*.shp")[0]
-            self.extract_node(node_file, t)
-            
-        # Calculate d_x_area
-        if np.all((self.data["reach"]["d_x_area"] == 0)):
-            self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
-            
-        # Append slope and d_x_area to node level
-        self.append_node("slope2", self.node_ids.shape[0])
-        self.append_node("slope2_u", self.node_ids.shape[0])
-        self.append_node("d_x_area", self.node_ids.shape[0])
-        self.append_node("d_x_area_u", self.node_ids.shape[0])
     
-    def extract_local(self):
+    def extract(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
         
         # Extract reach data
-        cycles = list(self.cycle_data.keys())
-        cycles.sort()
-        cycle_pass = []
-        for c in cycles:
-            for p in self.cycle_data[c]:
-                reach_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_reach_{c}_{p}_*.shp"))[0])
-                extracted = self.extract_reach(reach_file)
-                if extracted: 
-                    cycle_pass.append(f"{c}_{p}")
-                    self.obs_times.append(self.pass_data[f"{c}_{p}"])
-                    
-        # Extract node data
-        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(cycle_pass))       
-        for t in range(len(cycle_pass)):
-            c = cycle_pass[t].split('_')[0]
-            p = cycle_pass[t].split('_')[1]
-            node_file = Path(glob.glob(str(self.LOCAL_INPUT / f"*_node_{c}_{p}_*.shp"))[0])
-            self.extract_node(node_file, t)
+        rch_shpfile = [ shpfile for shpfile in self.shapefiles if "Reach" in shpfile ]
+        for shpfile in rch_shpfile:
+            if self.creds: 
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+                
+            extracted = self.extract_reach(df)
+            if extracted:
+                c = Path(shpfile).name.split('_')[5]
+                p = Path(shpfile).name.split('_')[6]
+                self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
+        
+        # Extract node data based on the number of observations found for reach
+        node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
+        self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
+        t = 0
+        for shpfile in node_shpfile:
+            if self.creds: 
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+            extracted = self.extract_node(df, t)
+            if extracted:
+                t += 1
+                c = Path(shpfile).name.split('_')[5]
+                p = Path(shpfile).name.split('_')[6]
+                if not self.cycle_pass[f"{c}_{p}"] in self.obs_times: raise ReachNodeMismatch
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == 0)):
@@ -172,37 +142,36 @@ class ExtractRiver(ExtractStrategy):
         self.append_node("d_x_area", self.node_ids.shape[0])
         self.append_node("d_x_area_u", self.node_ids.shape[0])
         
-    def extract_node(self, node_file, time):
+    def extract_node(self, df, t):
         """Extract node level data from shapefile found at node_file path.
     
         Parameters
         ----------
-        node_file: str
-            Path to node shapefile
-        time: int
+        df: Pandas.Dataframe
+            Dataframe of SWOT data.
+        t: int
             Current time step
         """
-        
-        # Load and locate reach identifier data
-        df = gpd.read_file(f"s3://{node_file}")
-        # df = gpd.read_file(node_file)    # local
-        
+
         # Get node identifiers for reach in dataframe
         df = df[df["node_id"].isin(self.node_ids)]
         if not df.empty:
             # Get a indexes of nodes in sorted dataframe
-            df.sort_values(by=["node_id"], inplace=True)
+            df = df.sort_values(by=["node_id"], inplace=False)
             nx = np.searchsorted(self.node_ids, df["node_id"].tolist())
             for var in self.NODE_VARS:
-                self.data["node"][var][nx,time] = df[var].tolist()             
+                self.data["node"][var][nx,t] = df[var].to_numpy()
+            return True
+        else:
+            return False       
                 
-    def extract_reach(self, reach_file):
+    def extract_reach(self, df):
         """Extract reach level data from shapefile found at reach_file path.
     
         Parameters
         ----------
-        reach_file: Path
-            Path to reach shapefile  
+        df: Pandas.DataFrame
+            dataframe of reach data
             
         Returns
         -------
@@ -210,9 +179,8 @@ class ExtractRiver(ExtractStrategy):
         """
         
         # Load and locate reach identifier data
-        df = gpd.read_file(f"s3://{reach_file}")
-        # df = gpd.read_file(reach_file)    # local
-        df = df.loc[df["reach_id"] == self.reach_id]
+        df["reach_id"] = df["reach_id"].astype("string")
+        df = df.loc[df["reach_id"] == self.swot_id]
         if not df.empty:
             # Append data into dictionary numpy arrays
             for var in self.REACH_VARS:
@@ -220,33 +188,6 @@ class ExtractRiver(ExtractStrategy):
             return True
         else:
             return False
-        
-    def retrieve_swot_files(self, c_id):
-        """Retrieve SWOT Lake shapefiles.
-        
-        Parameters
-        ----------
-        c_id: int
-            Continent integer identifier
-        """
-        
-        c_abr = self.CONT_LOOKUP[c_id]
-        c_files = [Path(c_file).name for c_file in self.confluence_fs.glob(f"confluence-swot/*reach*{c_abr}*.shp")]
-        return c_files
-    
-    def retrieve_swot_files_local(self, c_id):
-        """Retrieve SWOT Lake shapefiles.
-        
-        Parameters
-        ----------
-        c_id: int
-            Continent integer identifier
-        """
-        
-        c_abr = self.CONT_LOOKUP[c_id]
-        c_files = [Path(c_file).name for c_file in glob.glob(str(self.LOCAL_INPUT / f"*reach*{c_abr}*.shp"))]
-        return c_files
-                
                 
 # Functions
 def calculate_d_x_a(wse, width):
