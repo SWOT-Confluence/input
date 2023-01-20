@@ -103,7 +103,6 @@ def get_exe_data(index, json_file):
         """
         
         i = int(index) if index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
-
         with open(json_file) as json_file:
             data = json.load(json_file)[i]
         return data
