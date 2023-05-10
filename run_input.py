@@ -21,6 +21,7 @@ import sys
 # Third-party imports
 import boto3
 import botocore
+import glob
 
 # Local imports
 from input.Input import Input
@@ -52,7 +53,7 @@ def create_args():
                             "--shpjson",
                             type=str,
                             help="Path to the shapefile list json file",
-                            default="reach_node.json")
+                            default="s3_list_local.json")
     arg_parser.add_argument("-c",
                             "--context",
                             type=str,
@@ -162,8 +163,21 @@ def main():
         cycle_pass = json.load(jf)
     
     # Get shapefiles
-    with open(args.shpjson) as jf:
-        shapefiles = json.load(jf)
+
+    '''
+    Using the shapefile dir argument you can specify a group of shapefiles you would like to run input for
+    without the use of a local S3 list file.
+
+    This is helpful if you would like to run on all the shapefiles present, without subsetting.
+
+    The S3 json is needed to subset, or run in AWS.
+    '''
+    if args.shapefiledir is None:
+        with open(args.shpjson) as jf:
+            shapefiles = json.load(jf)
+
+    else:
+        shapefiles = glob.glob(os.path.join(args.shapefiledir, '*'))
         
     # Select strategy to run based on context
     if not args.local:
