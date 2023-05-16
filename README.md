@@ -34,3 +34,7 @@ export aws_secret=XXXXXXXXXXXXXXXXXXXXXXXXXX
 # Docker run command
 docker run --rm --name input -e AWS_ACCESS_KEY_ID=$aws_key -e AWS_SECRET_ACCESS_KEY=$aws_secret -e AWS_DEFAULT_REGION=us-west-2 -e AWS_BATCH_JOB_ARRAY_INDEX=26 -v /mnt/input:/data input:latest -i "-235" -r /data/reach_node.json -p /data/cycle_passes.json -s /data/s3_list.json -d /data/swot -c river -d /data/swot
 ```
+
+# tests
+
+1. Run the unit tests: `python3 -m unittest discover tests`
