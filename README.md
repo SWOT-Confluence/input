@@ -13,7 +13,7 @@ Build a Docker image: `docker build -t input .`
 # execution
 
 **Command line arguments:**
-- -i: index to locate continent in JSON file
+- -i: index to locate reach and nodes in JSON file
 - -r: path to reach node JSON file
 - -p: path to cycle pass JSON file
 - -s: path to S3 shapefiles list JSON file
