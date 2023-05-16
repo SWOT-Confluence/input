@@ -24,7 +24,7 @@ Build a Docker image: `docker build -t input .`
 
 **Execute a Docker container:**
 
-AWS credentials will need to be passed as environment variables to the container so that `datagen` may access AWS infrastructure to generate JSON files.
+AWS credentials will need to be passed as environment variables to the container so that `input` may access AWS infrastructure to generate JSON files.
 
 ```
 # Credentials
