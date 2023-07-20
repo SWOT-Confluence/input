@@ -275,19 +275,19 @@ class WriteRiver(WriteStrategy):
             + "partially ice covered, and fully ice covered, respectively."
         ice_dyn_f[:] = np.nan_to_num(data["node"]["ice_dyn_f"], copy=True, nan=self.INT_FILL)
 
-        partial_f = dataset.createVariable("partial_f", "i4", ("nx", "nt"),
+        node_q_b = dataset.createVariable("node_q_b", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
-        partial_f.long_name = "partial node coverage flag"
-        partial_f.standard_name = "status_flag"
-        partial_f.flag_meanings = "covered not_covered"
-        partial_f.flag_values = "0 1"
-        partial_f.valid_min = 0
-        partial_f.valid_max = 2
-        partial_f.comment = "Flag that indicates only partial node " \
+        node_q_b.long_name = "partial node coverage flag"
+        node_q_b.standard_name = "status_flag"
+        node_q_b.flag_meanings = "covered not_covered"
+        node_q_b.flag_values = "0 1"
+        node_q_b.valid_min = 0
+        node_q_b.valid_max = 2
+        node_q_b.comment = "Flag that indicates only partial node " \
             + "coverage. The flag is 0 if at least 10 pixels have a valid " \
             + "WSE measurement; the flag is 1 otherwise and node-level " \
             + "quantities are not computed."
-        partial_f[:] = np.nan_to_num(data["node"]["partial_f"], copy=True, nan=self.INT_FILL)
+        node_q_b[:] = np.nan_to_num(data["node"]["node_q_b"], copy=True, nan=self.INT_FILL)
 
         n_good_pix = dataset.createVariable("n_good_pix", "i4", ("nx", "nt"),
             fill_value = self.INT_FILL)

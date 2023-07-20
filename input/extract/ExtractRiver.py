@@ -54,10 +54,10 @@ class ExtractRiver(ExtractStrategy):
     """
     
     # Constants
-    REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
-    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     FLOAT_FILL = -999999999999
-    
+    REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
+    # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
+    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "node_q_b","n_good_pix", "xovr_cal_q", "time", "time_str"]
     def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
         """
         Parameters
@@ -76,6 +76,7 @@ class ExtractRiver(ExtractStrategy):
         
         super().__init__(swot_id, shapefiles, cycle_pass, creds)
         self.node_ids = np.array(node_ids)
+        print('Processing reach', swot_id)
         self.data = {
             "reach": { key: np.array([]) for key in self.REACH_VARS },
             "node": None
@@ -121,6 +122,7 @@ class ExtractRiver(ExtractStrategy):
         t = 0
         for shpfile in node_shpfile:
             if self.creds: 
+                print(shpfile)
                 df = self.get_fsspec(shpfile)
             else:
                 dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
@@ -130,7 +132,15 @@ class ExtractRiver(ExtractStrategy):
                 t += 1
                 c = Path(shpfile).name.split('_')[5]
                 p = Path(shpfile).name.split('_')[6]
-                if not self.cycle_pass[f"{c}_{p}"] in self.obs_times: raise ReachNodeMismatch
+                if not self.cycle_pass[f"{c}_{p}"] in self.obs_times:
+                    print('Error we are working on...')
+                    print(f"{c}_{p}")
+                    print('error testing')
+                    print('node', self.cycle_pass[f"{c}_{p}"])
+                    print('reach', self.swot_id )
+                    for i in self.obs_times:
+                        print(i)
+                    raise ReachNodeMismatch
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == 0)):
@@ -160,7 +170,10 @@ class ExtractRiver(ExtractStrategy):
             df = df.sort_values(by=["node_id"], inplace=False)
             nx = np.searchsorted(self.node_ids, df["node_id"].tolist())
             for var in self.NODE_VARS:
-                self.data["node"][var][nx,t] = df[var].to_numpy()
+                try:
+                    self.data["node"][var][nx,t] = df[var].to_numpy()
+                except:
+                    print('indexing error occured dimensions were', 'nx', nx, 'by nt', t)
             return True
         else:
             return False       
@@ -228,7 +241,7 @@ def create_node_dict(nx, nt):
         "dark_frac" : np.full((nx, nt), np.nan, dtype=np.float64),
         "ice_clim_f" : np.full((nx, nt), -999, dtype=int),
         "ice_dyn_f" : np.full((nx, nt), -999, dtype=int),
-        "partial_f" : np.full((nx, nt), -999, dtype=int),
+        "node_q_b" : np.full((nx, nt), -999, dtype=int),
         "n_good_pix" : np.full((nx, nt), -99999999, int),
         "xovr_cal_q" : np.full((nx, nt), -999, int),
         "time": np.full((nx, nt), np.nan, dtype=np.float64),
