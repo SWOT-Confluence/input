@@ -16,9 +16,12 @@ create_node_dict(nx, nt)
 
 # Standard imports
 from pathlib import Path
+import time
 
 # Third-party imports
 import numpy as np
+import boto3
+import botocore
 
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
@@ -82,6 +85,20 @@ class ExtractRiver(ExtractStrategy):
             "node": None
         }
 
+    def get_creds(self):
+        """Return AWS S3 credentials to access S3 shapefiles."""
+        
+        ssm_client = boto3.client('ssm', region_name="us-west-2")
+        creds = {}
+        try:
+            creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
+            creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
+            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+        except botocore.exceptions.ClientError as e:
+            raise e
+        else:
+            return creds
+
     def append_node(self, key, nx):
         """Appends reach level data identified by key to the node level.
         
@@ -103,6 +120,9 @@ class ExtractRiver(ExtractStrategy):
         
         # Extract reach data
         rch_shpfile = [ shpfile for shpfile in self.shapefiles if "Reach" in shpfile ]
+        print('Pulling reach files...')
+        #timing and re-up creds every 30 mins
+        start = time.time()
         for shpfile in rch_shpfile:
             if self.creds: 
                 df = self.get_fsspec(shpfile)
@@ -115,6 +135,13 @@ class ExtractRiver(ExtractStrategy):
                 c = Path(shpfile).name.split('_')[5]
                 p = Path(shpfile).name.split('_')[6]
                 self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
+            end = time.time()
+            time_delta = end-start
+            if time_delta > 1800:
+                self.creds = self.get_creds()
+                creds = self.creds
+                start = time.time()
+        
         
         # Extract node data based on the number of observations found for reach
         node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
@@ -141,6 +168,12 @@ class ExtractRiver(ExtractStrategy):
                     for i in self.obs_times:
                         print(i)
                     raise ReachNodeMismatch
+            end = time.time()
+            time_delta = end-start
+            if time_delta > 1800:
+                self.creds = self.get_creds()
+                creds = self.creds
+                start = time.time()
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == 0)):
