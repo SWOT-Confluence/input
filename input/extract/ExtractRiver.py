@@ -176,7 +176,7 @@ class ExtractRiver(ExtractStrategy):
                 start = time.time()
             
         # Calculate d_x_area
-        if np.all((self.data["reach"]["d_x_area"] == 0)):
+        if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
             self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
         
         # Append slope and d_x_area to node level
