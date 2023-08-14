@@ -22,6 +22,8 @@ import time
 import numpy as np
 import boto3
 import botocore
+from time import sleep
+from random import randint
 
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
@@ -90,14 +92,30 @@ class ExtractRiver(ExtractStrategy):
         
         ssm_client = boto3.client('ssm', region_name="us-west-2")
         creds = {}
-        try:
-            creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
-            creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-        except botocore.exceptions.ClientError as e:
-            raise e
+        retry_count = 10
+        while retry_count>0:
+            try:
+                creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
+                creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
+                creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+                retry_count = -999
+            except:
+                print('Error pulling credentials, retrying:', retry_count)
+                retry_count-=1
+                sleep(randint(1,300))
+        if retry_count == 0:
+            try:
+                print('Final Try...')
+                creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
+                creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
+                creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+                retry_count = -999
+            except botocore.exceptions.ClientError as e:
+                raise e
+
         else:
             return creds
+
 
     def append_node(self, key, nx):
         """Appends reach level data identified by key to the node level.
