@@ -566,7 +566,6 @@ class WriteRiver(WriteStrategy):
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
         xovr_cal_q.long_name = "quality of the cross-over calibration"
-        xovr_cal_q.flag_masks = "TBD"
         xovr_cal_q.flag_meanings = "good suspect bad"
         xovr_cal_q.flag_values = "0 1 2"
         xovr_cal_q.valid_min = 0
