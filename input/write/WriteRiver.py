@@ -153,7 +153,9 @@ class WriteRiver(WriteStrategy):
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
-        dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database. Extracted from reach-level and appended to node."
+        dxa.comment = "Change in channel cross sectional area from the " \
+            + "value reported in the prior river database. Extracted from " \
+            + "reach-level and appended to node."
         data["node"]["d_x_area"][np.isclose(data["node"]["d_x_area"], -1.e+12)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(data["node"]["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
@@ -162,8 +164,10 @@ class WriteRiver(WriteStrategy):
         dxa_u.long_name = "total uncertainty of the change in the cross-sectional area"
         dxa_u.units = "m^2"
         dxa_u.valid_min = 0
-        dxa_u.valid_max = 1000000000    # TODO fix to match PDD
-        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area. Extracted from reach-level and appended to node."
+        dxa_u.valid_max = 10000000
+        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) " \
+            + "in the change in the cross-sectional area. Extracted from " \
+            + "reach-level and appended to node."
         dxa_u[:] = np.nan_to_num(data["node"]["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
@@ -172,7 +176,11 @@ class WriteRiver(WriteStrategy):
         slope2.units = "m/m"
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
-        slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower. Extracted from reach-level and appended to node."
+        slope2.comment = "Enhanced water surface slope relative to the " \
+            + "geoid, produced using a smoothing of the node wse. The " \
+            + "upstream or downstream direction is defined by the prior " \
+            + "river database. A positive slope means that the downstream " \
+            + "WSE is lower. Extracted from reach-level and appended to node."
         slope2[:] = np.nan_to_num(data["node"]["slope2"], copy=True, nan=self.FLOAT_FILL)
 
         slope2_u = dataset.createVariable("slope2_u", "f8", ("nx", "nt"),
@@ -181,7 +189,10 @@ class WriteRiver(WriteStrategy):
         slope2_u.units = "m/m"
         slope2_u.valid_min = 0
         slope2_u.valid_max = 0.1
-        slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit. Extracted from reach-level and appended to node."
+        slope2_u.comment = "Total one-sigma uncertainty (random and " \
+            + "systematic) in the enhanced water surface slope, including " \
+            + "uncertainties of corrections and variation about the fit. " \
+            + "Extracted from reach-level and appended to node."
         slope2_u[:] = np.nan_to_num(data["node"]["slope2_u"], copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nx", "nt"), 
@@ -198,7 +209,7 @@ class WriteRiver(WriteStrategy):
         width_u.long_name = "total uncertainty in the node width"
         width_u.units = "m"
         width_u.valid_min = 0
-        width_u.valid_max = 10000
+        width_u.valid_max = 100000
         width_u.comment = "Total one-sigma uncertainty (random and systematic) in the node width."
         width_u[:] = np.nan_to_num(data["node"]["width_u"], copy=True, nan=self.FLOAT_FILL)
 
@@ -207,7 +218,11 @@ class WriteRiver(WriteStrategy):
         wse.units = "m"
         wse.valid_min = -1000
         wse.valid_max = 100000
-        wse.comment = "Fitted node water surface elevation, relative to the provided model of the geoid (geoid_hght), with all corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
+        wse.comment = "Fitted node water surface elevation, relative to the " \
+            + "provided model of the geoid (geoid_hght), with all " \
+            + "corrections for media delays (wet and dry troposphere, and " \
+            +" ionosphere), crossover correction, and tidal effects " \
+            + "(solid_tide, load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["node"]["wse"], copy=True, nan=self.FLOAT_FILL)
         
         wse_u = dataset.createVariable("wse_u", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
@@ -215,21 +230,24 @@ class WriteRiver(WriteStrategy):
         wse_u.units = "m"
         wse_u.valid_min = 0.0
         wse_u.valid_max = 999999
-        wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the node WSE, including uncertainties of corrections, and variation about the fit."
+        wse_u.comment = "Total one-sigma uncertainty (random and systematic) " \
+            + "in the node WSE, including uncertainties of corrections, and " \
+            + "variation about the fit."
         wse_u[:] = np.nan_to_num(data["node"]["wse_u"], copy=True, nan=self.FLOAT_FILL)
 
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
             fill_value=self.INT_FILL)
         node_q.long_name = "summary quality indicator for the node"
         node_q.standard_name = "status_flag"
-        node_q.flag_masks = "TBD"
-        node_q.flag_meanings = "good bad"
-        node_q.flag_values = "0 1"
+        node_q.short_name = "node_qual"
+        node_q.flag_meanings = "good suspect degraded bad"
+        node_q.flag_values = "0 1 2 3"
         node_q.valid_min = 0
-        node_q.valid_max = 1
+        node_q.valid_max = 3
         node_q.comment = "Summary quality indicator for the node " \
-            + "measurement. Values of 0 and 1 indicate nominal and " \
-            + "off-nominal measurements."
+            + "measurement. Value of 0 indicates a nominal measurement, 1 " \
+            + "indicates a suspect measurement, 2 indicates a degraded " \
+                + "quality measurement, and 3 indicates a bad measurement."
         node_q[:] = np.nan_to_num(data["node"]["node_q"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nx", "nt"),
@@ -277,16 +295,20 @@ class WriteRiver(WriteStrategy):
 
         node_q_b = dataset.createVariable("node_q_b", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
-        node_q_b.long_name = "partial node coverage flag"
+        node_q_b.long_name = "bitwise quality indicator for the node"
         node_q_b.standard_name = "status_flag"
-        node_q_b.flag_meanings = "covered not_covered"
-        node_q_b.flag_values = "0 1"
+        node_q_b.short_name = "node_qual_bitwise"
+        node_q_b.flag_meanings = "sig0_qual_suspect classification_qual_suspect geolocation_qual_suspect water_fraction_suspect blocking_width_suspect bright_land few_sig0_observations few_area_observations few_wse_observations far_range_suspect near_range_suspect classification_qual_degraded geolocation_qual_degraded wse_outlier wse_bad no_sig0_observations no_area_observations no_wse_observations no_observations"
+        node_q_b.flag_masks = "1 2 4 8 16 128 512 1024 2048 8192 16384 262144 524288 8388608 16777216 33554432 67108864 134217728 268435456"
         node_q_b.valid_min = 0
-        node_q_b.valid_max = 2
-        node_q_b.comment = "Flag that indicates only partial node " \
-            + "coverage. The flag is 0 if at least 10 pixels have a valid " \
-            + "WSE measurement; the flag is 1 otherwise and node-level " \
-            + "quantities are not computed."
+        node_q_b.valid_max = 529297055
+        node_q_b.comment = "Bitwise quality indicator for the node " \
+            + "measurement. If this word is interpreted as an unsigned " \
+            + "integer, a value of 0 indicates good data, values greater " \
+            + "than 0 but less than 262144 represent suspect data, values " \
+            + "greater than or equal to 262144 but less than 8388608 " \
+            + "represent degraded data, and values greater than or equal to " \
+            + "8388608 represent bad data."
         node_q_b[:] = np.nan_to_num(data["node"]["node_q_b"], copy=True, nan=self.INT_FILL)
 
         n_good_pix = dataset.createVariable("n_good_pix", "i4", ("nx", "nt"),
@@ -303,12 +325,13 @@ class WriteRiver(WriteStrategy):
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nx", "nt"),
             fill_value=self.INT_FILL)
         xovr_cal_q.long_name = "quality of the cross-over calibration"
-        xovr_cal_q.flag_masks = "TBD"
-        xovr_cal_q.flag_meanings = "TBD"
-        xovr_cal_q.flag_values = "T B D"
+        xovr_cal_q.flag_meanings = "good suspect bad"
+        xovr_cal_q.flag_values = "0 1 2"
         xovr_cal_q.valid_min = 0
-        xovr_cal_q.valid_max = 1
-        xovr_cal_q.comment = "Quality of the cross-over calibration."
+        xovr_cal_q.valid_max = 2
+        xovr_cal_q.comment = "Quality of the cross-over calibration. A value " \
+            + "of 0 indicates a nominal measurement, 1 indicates a suspect " \
+            + "measurement, and 2 indicates a bad measurement."
         xovr_cal_q[:] = np.nan_to_num(data["node"]["xovr_cal_q"], copy=True, nan=self.INT_FILL)  
 
     def __write_reach_vars(self, dataset, data, reach_id):
@@ -367,7 +390,8 @@ class WriteRiver(WriteStrategy):
         dxa.units = "m^2"
         dxa.valid_min = -10000000
         dxa.valid_max = 10000000
-        dxa.comment = "Change in channel cross sectional area from the value reported in the prior river database."
+        dxa.comment = "Change in channel cross sectional area from the value " \
+            + "reported in the prior river database."
         data["reach"]["d_x_area"][np.isclose(data["reach"]["d_x_area"], -1.e+12)] = np.nan    # sac-specific
         dxa[:] = np.nan_to_num(data["reach"]["d_x_area"], copy=True, nan=self.FLOAT_FILL)
 
@@ -376,8 +400,9 @@ class WriteRiver(WriteStrategy):
         dxa_u.long_name = "total uncertainty of the change in the cross-sectional area"
         dxa_u.units = "m^2"
         dxa_u.valid_min = 0
-        dxa_u.valid_max = 1000000000    # TODO fix to match PDD
-        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) in the change in the cross-sectional area."
+        dxa_u.valid_max = 10000000    # TODO fix to match PDD
+        dxa_u.comment = "Total one-sigma uncertainty (random and systematic) " \
+            + "in the change in the cross-sectional area."
         dxa_u[:] = np.nan_to_num(data["reach"]["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
@@ -386,7 +411,11 @@ class WriteRiver(WriteStrategy):
         slope2.units = "m/m"
         slope2.valid_min = -0.001
         slope2.valid_max = 0.1
-        slope2.comment = "Enhanced water surface slope relative to the geoid, produced using a smoothing of the node wse. The upstream or downstream direction is defined by the prior river database. A positive slope means that the downstream WSE is lower."
+        slope2.comment = "Enhanced water surface slope relative to the " \
+            + "geoid, produced using a smoothing of the node wse. The " \
+            + "upstream or downstream direction is defined by the prior " \
+            + "river database. A positive slope means that the downstream " \
+            + "WSE is lower."
         slope2[:] = np.nan_to_num(data["reach"]["slope2"], copy=True, nan=self.FLOAT_FILL)
 
         slope2_u = dataset.createVariable("slope2_u", "f8", ("nt",),
@@ -395,7 +424,9 @@ class WriteRiver(WriteStrategy):
         slope2_u.units = "m/m"
         slope2_u.valid_min = 0
         slope2_u.valid_max = 0.1
-        slope2_u.comment = "Total one-sigma uncertainty (random and systematic) in the enhanced water surface slope, including uncertainties of corrections and variation about the fit."
+        slope2_u.comment = "Total one-sigma uncertainty (random and " \
+            + "systematic) in the enhanced water surface slope, including " \
+            + "uncertainties of corrections and variation about the fit."
         slope2_u[:] = np.nan_to_num(data["reach"]["slope2_u"], copy=True, nan=self.FLOAT_FILL)
         
         width = dataset.createVariable("width", "f8", ("nt",), 
@@ -419,9 +450,13 @@ class WriteRiver(WriteStrategy):
         wse = dataset.createVariable("wse", "f8", ("nt",), fill_value=self.FLOAT_FILL)
         wse.long_name = "water surface elevation with respect to the geoid"
         wse.units = "m"
-        wse.valid_min = -1000
-        wse.valid_max = 100000
-        wse.comment = "Fitted reach water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."
+        wse.valid_min = -1500
+        wse.valid_max = 150000
+        wse.comment = "Fitted reach water surface elevation, relative to the " \
+            + "provided model of the geoid (geoid_hght), with corrections " \
+            + "for media delays (wet and dry troposphere, and ionosphere), " \
+            + "crossover correction, and tidal effects (solid_tide, " \
+            + "load_tidef, and pole_tide) applied."
         wse[:] = np.nan_to_num(data["reach"]["wse"], copy=True, nan=self.FLOAT_FILL)
 
         wse_u = dataset.createVariable("wse_u", "f8", ("nt",), fill_value=self.FLOAT_FILL)
@@ -429,21 +464,23 @@ class WriteRiver(WriteStrategy):
         wse_u.units = "m"
         wse_u.valid_min = 0.0
         wse_u.valid_max = 999999
-        wse_u.comment = "Total one-sigma uncertainty (random and systematic) in the reach WSE, including uncertainties of corrections, and variation about the fit."
+        wse_u.comment = "Total one-sigma uncertainty (random and systematic) " \
+            + "in the reach WSE, including uncertainties of corrections, and " \
+            + "variation about the fit."
         wse_u[:] = np.nan_to_num(data["reach"]["wse_u"], copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
         reach_q.long_name = "summary quality indicator for the reach"
         reach_q.standard_name = "summary quality indicator for the reach"
-        reach_q.flag_masks = "TBD"
-        reach_q.flag_meanings = "good bad"
-        reach_q.flag_values = "0 1"
+        reach_q.flag_meanings = "good suspect degraded bad"
+        reach_q.flag_values = "0 1 2 3"
         reach_q.valid_min = 0
-        reach_q.valid_max = 1
+        reach_q.valid_max = 3
         reach_q.comment = "Summary quality indicator for the reach " \
-            + "measurement. Values of 0 and 1 indicate nominal (good) " \
-            + "and off-nominal (suspect) measurements."
+            + "measurement. A value of 0 indicates a nominal measurement, 1 " \
+            + "indicates a suspect measurement, 2 indicates a degraded " \
+            + "measurement, and 3 indicates a bad measurement."
         reach_q[:] = np.nan_to_num(data["reach"]["reach_q"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nt",),
@@ -529,10 +566,11 @@ class WriteRiver(WriteStrategy):
         xovr_cal_q = dataset.createVariable("xovr_cal_q", "i4", ("nt",),
             fill_value=self.INT_FILL)
         xovr_cal_q.long_name = "quality of the cross-over calibration"
-        xovr_cal_q.flag_masks = "TBD"
-        xovr_cal_q.flag_meanings = "TBD"
-        xovr_cal_q.flag_values = "T B D"
+        xovr_cal_q.flag_meanings = "good suspect bad"
+        xovr_cal_q.flag_values = "0 1 2"
         xovr_cal_q.valid_min = 0
-        xovr_cal_q.valid_max = 1
-        xovr_cal_q.comment = "Quality of the cross-over calibration."
+        xovr_cal_q.valid_max = 2
+        xovr_cal_q.comment = "Quality of the cross-over calibration. A value " \
+            + "of 0 indicates a nominal measurement, 1 indicates a suspect " \
+            + "measurement, and 2 indicates a bad measurement."
         xovr_cal_q[:] = np.nan_to_num(data["reach"]["xovr_cal_q"], copy=True, nan=self.INT_FILL)
