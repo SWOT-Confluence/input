@@ -56,6 +56,11 @@ def create_args():
                             type=str,
                             help="Path to the shapefile list json file",
                             default="s3_list_local.json")
+    arg_parser.add_argument("-e",
+                            "--rshpjson",
+                            type=str,
+                            help="Path to the reach S3 list json file",
+                            default="s3_reach.json")
     arg_parser.add_argument("-c",
                             "--context",
                             type=str,
@@ -202,12 +207,9 @@ def main():
 
     The S3 json is needed to subset, or run in AWS.
     '''
-    if args.shapefiledir is None:
-        with open(args.shpjson) as jf:
-            shapefiles = json.load(jf)
-
-    else:
-        shapefiles = glob.glob(os.path.join(args.shapefiledir, '*'))
+    
+    with open(args.rshpjson) as jf:
+        shapefiles = json.load(jf)[exe_data[0]]
         
     # Select strategy to run based on context
     if not args.local:
