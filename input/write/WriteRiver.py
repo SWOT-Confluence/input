@@ -429,7 +429,7 @@ class WriteRiver(WriteStrategy):
             + "in the change in the cross-sectional area."
         dxa_u[:] = np.nan_to_num(data["reach"]["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
         
-        slope = dataset.createVariable("slope", "f8", ("nx", "nt"),
+        slope = dataset.createVariable("slope", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
         slope.long_name = "water surface slope with respect to the geoid"
         slope.units = "m/m"
@@ -442,7 +442,7 @@ class WriteRiver(WriteStrategy):
             + "means that the downstream WSE is lower."
         slope[:] = np.nan_to_num(data["reach"]["slope"], copy=True, nan=self.FLOAT_FILL)
 
-        slope_u = dataset.createVariable("slope_u", "f8", ("nx", "nt"),
+        slope_u = dataset.createVariable("slope_u", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
         slope_u.long_name = "total uncertainty in the water surface slope"
         slope_u.units = "m/m"
