@@ -169,6 +169,30 @@ class WriteRiver(WriteStrategy):
             + "in the change in the cross-sectional area. Extracted from " \
             + "reach-level and appended to node."
         dxa_u[:] = np.nan_to_num(data["node"]["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        slope = dataset.createVariable("slope", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        slope.long_name = "water surface slope with respect to the geoid"
+        slope.units = "m/m"
+        slope.valid_min = -0.001
+        slope.valid_max = 0.1
+        slope.comment = "Fitted water surface slope relative to the geoid, " \
+            + "and with the same corrections and geophysical fields applied as " \
+            + "wse. The units are m/m. The upstream or downstream direction " \
+            + "is defined by the prior river database. A positive slope " \
+            + "means that the downstream WSE is lower."
+        slope[:] = np.nan_to_num(data["node"]["slope"], copy=True, nan=self.FLOAT_FILL)
+
+        slope_u = dataset.createVariable("slope_u", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        slope_u.long_name = "total uncertainty in the water surface slope"
+        slope_u.units = "m/m"
+        slope_u.valid_min = 0
+        slope_u.valid_max = 0.1
+        slope_u.comment = "Total one-sigma uncertainty (random and " \
+            + "systematic) in the water surface slope, including " \
+            + "uncertainties of corrections and variation about the fit."
+        slope_u[:] = np.nan_to_num(data["node"]["slope_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -404,6 +428,30 @@ class WriteRiver(WriteStrategy):
         dxa_u.comment = "Total one-sigma uncertainty (random and systematic) " \
             + "in the change in the cross-sectional area."
         dxa_u[:] = np.nan_to_num(data["reach"]["d_x_area_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        slope = dataset.createVariable("slope", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        slope.long_name = "water surface slope with respect to the geoid"
+        slope.units = "m/m"
+        slope.valid_min = -0.001
+        slope.valid_max = 0.1
+        slope.comment = "Fitted water surface slope relative to the geoid, " \
+            + "and with the same corrections and geophysical fields applied as " \
+            + "wse. The units are m/m. The upstream or downstream direction " \
+            + "is defined by the prior river database. A positive slope " \
+            + "means that the downstream WSE is lower."
+        slope[:] = np.nan_to_num(data["reach"]["slope"], copy=True, nan=self.FLOAT_FILL)
+
+        slope_u = dataset.createVariable("slope_u", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        slope_u.long_name = "total uncertainty in the water surface slope"
+        slope_u.units = "m/m"
+        slope_u.valid_min = 0
+        slope_u.valid_max = 0.1
+        slope_u.comment = "Total one-sigma uncertainty (random and " \
+            + "systematic) in the water surface slope, including " \
+            + "uncertainties of corrections and variation about the fit."
+        slope_u[:] = np.nan_to_num(data["reach"]["slope_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)

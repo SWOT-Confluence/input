@@ -60,7 +60,7 @@ class ExtractRiver(ExtractStrategy):
     
     # Constants
     FLOAT_FILL = -999999999999
-    REACH_VARS = ["slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
+    REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "node_q_b","n_good_pix", "xovr_cal_q", "time", "time_str"]
     def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
@@ -213,6 +213,8 @@ class ExtractRiver(ExtractStrategy):
             self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
         
         # Append slope and d_x_area to node level
+        self.append_node("slope", self.node_ids.shape[0])
+        self.append_node("slope_u", self.node_ids.shape[0])
         self.append_node("slope2", self.node_ids.shape[0])
         self.append_node("slope2_u", self.node_ids.shape[0])
         self.append_node("d_x_area", self.node_ids.shape[0])
@@ -295,6 +297,8 @@ def create_node_dict(nx, nt):
     """
 
     return {
+        "slope" : np.full((nx, nt), np.nan, dtype=np.float64),
+        "slope_u" : np.full((nx, nt), np.nan, dtype=np.float64),
         "slope2" : np.full((nx, nt), np.nan, dtype=np.float64),
         "slope2_u" : np.full((nx, nt), np.nan, dtype=np.float64),
         "width" : np.full((nx, nt), np.nan, dtype=np.float64),
