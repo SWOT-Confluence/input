@@ -143,26 +143,24 @@ class ExtractRiver(ExtractStrategy):
         #timing and re-up creds every 30 mins
         start = time.time()
         for shpfile in rch_shpfile:
-            # make sure it is first processing
-            if shpfile[-5] == '1':
-                if self.creds: 
-                    df = self.get_fsspec(shpfile)
-                else:
-                    dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
-                    df = self.get_df(shpfile, dbf)
-                    
-                extracted = self.extract_reach(df)
-                if extracted:
-                    all_shps.append(shpfile)
-                    c = Path(shpfile).name.split('_')[5]
-                    p = Path(shpfile).name.split('_')[6]
-                    self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
-                end = time.time()
-                time_delta = end-start
-                if time_delta > 1800:
-                    self.creds = self.get_creds()
-                    creds = self.creds
-                    start = time.time()
+            if self.creds: 
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+                
+            extracted = self.extract_reach(df)
+            if extracted:
+                all_shps.append(shpfile)
+                c = Path(shpfile).name.split('_')[5]
+                p = Path(shpfile).name.split('_')[6]
+                self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
+            end = time.time()
+            time_delta = end-start
+            if time_delta > 1800:
+                self.creds = self.get_creds()
+                creds = self.creds
+                start = time.time()
 
         mapping_dict[self.swot_id] = all_shps
         import json
@@ -178,35 +176,31 @@ class ExtractRiver(ExtractStrategy):
 
 
         for shpfile in node_shpfile:
-            # check if it is the first processing
-            if shpfile[-5] == '1':
-
-                if self.creds: 
-                    # print(shpfile)
-                    df = self.get_fsspec(shpfile)
-                else:
-                    dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
-                    df = self.get_df(shpfile, dbf)
-                extracted = self.extract_node(df, t)
-                if extracted:
-                    t += 1
-                    c = Path(shpfile).name.split('_')[5]
-                    p = Path(shpfile).name.split('_')[6]
-                    if not self.cycle_pass[f"{c}_{p}"] in self.obs_times:
-                        print('Error we are working on...')
-                        print(f"{c}_{p}")
-                        print('error testing')
-                        print('node', self.cycle_pass[f"{c}_{p}"])
-                        print('reach', self.swot_id )
-                        for i in self.obs_times:
-                            print(i)
-                        raise ReachNodeMismatch
-                end = time.time()
-                time_delta = end-start
-                if time_delta > 1800:
-                    self.creds = self.get_creds()
-                    creds = self.creds
-                    start = time.time()
+            if self.creds:
+                df = self.get_fsspec(shpfile)
+            else:
+                dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
+                df = self.get_df(shpfile, dbf)
+            extracted = self.extract_node(df, t)
+            if extracted:
+                t += 1
+                c = Path(shpfile).name.split('_')[5]
+                p = Path(shpfile).name.split('_')[6]
+                if not self.cycle_pass[f"{c}_{p}"] in self.obs_times:
+                    print('Error we are working on...')
+                    print(f"{c}_{p}")
+                    print('error testing')
+                    print('node', self.cycle_pass[f"{c}_{p}"])
+                    print('reach', self.swot_id )
+                    for i in self.obs_times:
+                        print(i)
+                    raise ReachNodeMismatch
+            end = time.time()
+            time_delta = end-start
+            if time_delta > 1800:
+                self.creds = self.get_creds()
+                creds = self.creds
+                start = time.time()
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
