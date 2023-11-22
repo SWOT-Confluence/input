@@ -21,7 +21,7 @@ resource "aws_batch_job_definition" "generate_batch_jd_input" {
     "mountPoints": [
       {
         "sourceVolume": "input",
-        "containerPath": "/data"
+        "containerPath": "/mnt/data"
       }
     ],
     "volumes": [
