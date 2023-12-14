@@ -138,9 +138,8 @@ def get_exe_data(index, json_file):
         dictionary of execution data
         """
         
-        i = int(index) if index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
         with open(json_file) as json_file:
-            data = json.load(json_file)[i]
+            data = json.load(json_file)[index]
         return data
 
 def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, creds=None):
@@ -191,7 +190,9 @@ def main():
     args = arg_parser.parse_args()
         
     # Get input data to run on
-    exe_data = get_exe_data(args.index, args.rnjson)
+    index = int(args.index) if args.index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+    exe_data = get_exe_data(index, args.rnjson)
+    print(f"Running on reach: {exe_data[0]} (index number {index}).")
     
     # Get cycle pass data
     with open(args.cpjson) as jf:
