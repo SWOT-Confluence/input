@@ -169,11 +169,11 @@ def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, cre
     """
     
     if context == "river":
-        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, creds, exe_data[1])
+        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, output_dir, creds, exe_data[1])
         ew = WriteRiver(exe_data[0], output_dir, exe_data[1])
         input = Input(er, ew)
     elif context == "lake": 
-        el = ExtractLake(exe_data, shapefiles, cycle_pass, creds)
+        el = ExtractLake(exe_data, shapefiles, cycle_pass, output_dir, creds)
         wl = WriteLake(exe_data, output_dir)
         input = Input(el, wl)
     else:

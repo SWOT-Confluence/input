@@ -30,7 +30,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         extracts data from local file system and stores in data dictionaries.
     """
     
-    def __init__(self, swot_id, shapefiles, cycle_pass, creds=None):
+    def __init__(self, swot_id, shapefiles, cycle_pass, output_dir, creds=None):
         """
         Parameters
         ----------
@@ -48,6 +48,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         self.shapefiles = shapefiles
         self.obs_times = []
         self.cycle_pass = cycle_pass
+        self.output_dir = output_dir
         self.creds = creds
     
     @classmethod

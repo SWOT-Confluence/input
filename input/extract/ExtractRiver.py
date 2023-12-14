@@ -15,6 +15,7 @@ create_node_dict(nx, nt)
 """
 
 # Standard imports
+import json
 from pathlib import Path
 import time
 
@@ -63,7 +64,7 @@ class ExtractRiver(ExtractStrategy):
     REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "node_q_b","n_good_pix", "xovr_cal_q", "time", "time_str"]
-    def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
+    def __init__(self, swot_id, shapefiles, cycle_pass, output_dir, creds, node_ids):
         """
         Parameters
         ----------
@@ -79,7 +80,7 @@ class ExtractRiver(ExtractStrategy):
             list of node identifiers that are associated with reach identifier
         """
         
-        super().__init__(swot_id, shapefiles, cycle_pass, creds)
+        super().__init__(swot_id, shapefiles, cycle_pass, output_dir, creds)
         self.node_ids = np.array(node_ids)
         print('Processing reach', swot_id)
         self.data = {
@@ -162,11 +163,10 @@ class ExtractRiver(ExtractStrategy):
                 creds = self.creds
                 start = time.time()
 
-        mapping_dict[self.swot_id] = all_shps
-        import json
-        with open(f'/mnt/data/swot/creation_logs/{self.swot_id}.json', 'w') as fp:
-            json.dump(mapping_dict, fp)
+        # Remove duplicate observation times
         self.obs_times = list(set(self.obs_times))
+        
+        
         # Extract node data based on the number of observations found for reach
         node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
         self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
@@ -183,6 +183,7 @@ class ExtractRiver(ExtractStrategy):
                 df = self.get_df(shpfile, dbf)
             extracted = self.extract_node(df, t)
             if extracted:
+                all_shps.append(shpfile)
                 t += 1
                 c = Path(shpfile).name.split('_')[5]
                 p = Path(shpfile).name.split('_')[6]
@@ -201,6 +202,13 @@ class ExtractRiver(ExtractStrategy):
                 self.creds = self.get_creds()
                 creds = self.creds
                 start = time.time()
+                
+        
+        # Track shapefiles used to create input file        
+        mapping_dict[self.swot_id] = all_shps
+        with open(self.output_dir / "creation_logs"/ f"{self.swot_id}.json", 'w') as fp:
+            json.dump(mapping_dict, fp)
+            
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
