@@ -168,8 +168,8 @@ def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, cre
     """
     
     if context == "river":
-        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, creds, exe_data[1])
-        ew = WriteRiver(exe_data[0], output_dir, exe_data[1])
+        er = ExtractRiver(exe_data['reach_id'], shapefiles, cycle_pass, creds, exe_data[1])
+        ew = WriteRiver(exe_data['reach_id'], output_dir, exe_data[1])
         input = Input(er, ew)
     elif context == "lake": 
         el = ExtractLake(exe_data, shapefiles, cycle_pass, creds)
@@ -190,13 +190,14 @@ def main():
     args = arg_parser.parse_args()
         
     # Get input data to run on
-    if args.chunk_number:
+    if args.chunk_number is not None:
         # run_jsons = glob.glob(args.rnjson.replace('.json', '*'))
         run_json = os.path.join('mnt', 'data', f'reaches_{args.chunk_number}.json')
     else:
         run_json = os.path.join('mnt', 'data', 'reaches.json')
-        
+    print('Extracting data from:', run_json)
     exe_data = get_exe_data(args.index, run_json)
+    print(exe_data)
     
     # Get cycle pass data
     with open(args.cpjson) as jf:
