@@ -74,6 +74,10 @@ def create_args():
                             "--shapefiledir",
                             type=str,
                             help="Directory of local shapefiles")
+    arg_parser.add_argument("-n",
+                            "--chunk_number",
+                            type=int,
+                            help="Number indicating what chunk to run on ")
     return arg_parser
 
 # def get_creds():
@@ -186,7 +190,13 @@ def main():
     args = arg_parser.parse_args()
         
     # Get input data to run on
-    exe_data = get_exe_data(args.index, args.rnjson)
+    if args.chunk_number:
+        # run_jsons = glob.glob(args.rnjson.replace('.json', '*'))
+        run_json = os.path.join('mnt', 'data', f'reaches_{args.chunk_number}.json')
+    else:
+        run_json = os.path.join('mnt', 'data', 'reaches.json')
+        
+    exe_data = get_exe_data(args.index, run_json)
     
     # Get cycle pass data
     with open(args.cpjson) as jf:
