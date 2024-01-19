@@ -79,6 +79,10 @@ def create_args():
                             "--shapefiledir",
                             type=str,
                             help="Directory of local shapefiles")
+    arg_parser.add_argument("-n",
+                            "--chunk_number",
+                            type=int,
+                            help="Number indicating what chunk to run on ")
     return arg_parser
 
 # def get_creds():
@@ -188,11 +192,18 @@ def main():
     # Command line arguments
     arg_parser = create_args()
     args = arg_parser.parse_args()
+    index = args.index
         
     # Get input data to run on
-    index = int(args.index) if args.index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+    if args.chunk_number is not None:
+        # run_jsons = glob.glob(args.rnjson.replace('.json', '*'))
+        run_json = args.rnjson.replace('.json', f'_{args.chunk_number}.json')
+    else:
+        run_json = args.rnjson
+
     exe_data = get_exe_data(index, args.rnjson)
     print(f"Running on reach: {exe_data[0]} (index number {index}).")
+
     
     # Get cycle pass data
     with open(args.cpjson) as jf:
