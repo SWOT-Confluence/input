@@ -70,6 +70,10 @@ def create_args():
                             "--local",
                             action='store_true',
                             help="Indicates local run of program")
+    arg_parser.add_argument("-hpc",
+                            "--hpc",
+                            action='store_true',
+                            help="Indicates hpc run of program ")
     arg_parser.add_argument("-f",
                             "--shapefiledir",
                             type=str,
@@ -80,19 +84,19 @@ def create_args():
                             help="Number indicating what chunk to run on ")
     return arg_parser
 
-# def get_creds():
-#     """Return AWS S3 credentials to access S3 shapefiles."""
+def get_creds():
+    """Return AWS S3 credentials to access S3 shapefiles."""
     
-#     ssm_client = boto3.client('ssm', region_name="us-west-2")
-#     creds = {}
-#     try:
-#         creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
-#         creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-#         creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-#     except botocore.exceptions.ClientError as e:
-#         raise e
-#     else:
-#         return creds
+    ssm_client = boto3.client('ssm', region_name="us-west-2")
+    creds = {}
+    try:
+        creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
+        creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
+        # creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+    except botocore.exceptions.ClientError as e:
+        raise e
+    else:
+        return creds
 
 def get_creds():
     """Return AWS S3 credentials to access S3 shapefiles."""
@@ -104,7 +108,7 @@ def get_creds():
         try:
             creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
             creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+            # creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
             retry_count = -999
         except:
             print('Error pulling credentials, retrying:', retry_count)
@@ -115,7 +119,7 @@ def get_creds():
             print('Final Try...')
             creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
             creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+            # creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
             retry_count = -999
         except botocore.exceptions.ClientError as e:
             raise e
@@ -142,7 +146,7 @@ def get_exe_data(index, json_file):
             data = json.load(json_file)[i]
         return data
 
-def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, creds=None):
+def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, hpc, creds = 'foo'):
     """Define and set strategies to execute Input operations.
     
     Program exits if context is not set.
@@ -168,7 +172,8 @@ def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, cre
     """
     
     if context == "river":
-        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, creds, exe_data[1])
+        # def __init__(self, swot_id, shapefiles, cycle_pass, hpc, node_ids, output_dir):
+        er = ExtractRiver(swot_id = exe_data[0], shapefiles = shapefiles, cycle_pass = cycle_pass, hpc = hpc, node_ids = exe_data[1], output_dir = output_dir, creds = creds)
         ew = WriteRiver(exe_data[0], output_dir, exe_data[1])
         input = Input(er, ew)
     elif context == "lake": 
@@ -223,7 +228,12 @@ def main():
         shapefiles = glob.glob(os.path.join(args.shapefiledir, '*'))
         
     # Select strategy to run based on context
-    if not args.local:
+    if args.local or args.hpc:
+        print('running local or hpc')
+        input = select_strategies(args.context, exe_data, shapefiles, \
+            cycle_pass, Path(args.directory), args.hpc)
+
+    else:
         print("Obtaining S3 credentials.")
         try:
             creds = get_creds()
@@ -232,11 +242,9 @@ def main():
             print(error)
             print("Exiting program...")
             sys.exit(1)
-        input = select_strategies(args.context, exe_data, shapefiles, \
-            cycle_pass, Path(args.directory), creds)
-    else:
-        input = select_strategies(args.context, exe_data, shapefiles, \
-            cycle_pass, Path(args.directory))
+            input = select_strategies(args.context, exe_data, shapefiles, \
+                cycle_pass, Path(args.directory), creds)
+
     
     # Execute strategies to retrieve SWOT data and save as a NETCDF
     try:    

@@ -30,7 +30,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         extracts data from local file system and stores in data dictionaries.
     """
     
-    def __init__(self, swot_id, shapefiles, cycle_pass, creds=None):
+    def __init__(self, swot_id, shapefiles, cycle_pass, hpc, node_ids, output_dir, creds):
         """
         Parameters
         ----------
@@ -68,8 +68,7 @@ class ExtractStrategy(metaclass=ABCMeta):
         # Determine execution environment
         with fsspec.open(f"{shpfile}", mode="rb", anon=False, 
                             key=self.creds["access_key"], 
-                            secret=self.creds["secret"], 
-                            token=self.creds["token"]) as shp:
+                            secret=self.creds["secret"]) as shp:
             
             dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
             df = self.get_df(shp, dbf)

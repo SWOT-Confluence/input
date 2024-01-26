@@ -17,6 +17,8 @@ create_node_dict(nx, nt)
 # Standard imports
 from pathlib import Path
 import time
+import subprocess as sp
+import os
 
 # Third-party imports
 import numpy as np
@@ -63,7 +65,7 @@ class ExtractRiver(ExtractStrategy):
     REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "node_q_b","n_good_pix", "xovr_cal_q", "time", "time_str"]
-    def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
+    def __init__(self, swot_id, shapefiles, cycle_pass, hpc, node_ids, output_dir, creds):
         """
         Parameters
         ----------
@@ -79,13 +81,15 @@ class ExtractRiver(ExtractStrategy):
             list of node identifiers that are associated with reach identifier
         """
         
-        super().__init__(swot_id, shapefiles, cycle_pass, creds)
+        super().__init__(swot_id, shapefiles, cycle_pass, hpc,node_ids,output_dir, creds)
         self.node_ids = np.array(node_ids)
         print('Processing reach', swot_id)
         self.data = {
             "reach": { key: np.array([]) for key in self.REACH_VARS },
             "node": None
         }
+        self.hpc = hpc
+        self.output_dir = output_dir
 
     def get_creds(self):
         """Return AWS S3 credentials to access S3 shapefiles."""
@@ -97,7 +101,7 @@ class ExtractRiver(ExtractStrategy):
             try:
                 creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
                 creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-                creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+                # creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
                 retry_count = -999
             except:
                 print('Error pulling credentials, retrying:', retry_count)
@@ -108,7 +112,7 @@ class ExtractRiver(ExtractStrategy):
                 print('Final Try...')
                 creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
                 creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-                creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
+                # creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
                 retry_count = -999
             except botocore.exceptions.ClientError as e:
                 raise e
@@ -133,17 +137,37 @@ class ExtractRiver(ExtractStrategy):
         node_data = np.tile(self.data["reach"][key], (nx, 1))
         self.data["node"][key] = node_data        
     
+    def download_shps(self, shapefile_list:list, shpfile_dir:str):
+
+        # https://archive.swot.podaac.earthdata.nasa.gov/podaac-swot-ops-cumulus-protected/SWOT_L2_HR_RiverSP_1.1/SWOT_L2_HR_RiverSP_Reach_502_027_SI_20230426T162930_20230426T162932_PIB0_01.zip
+        podaac_address = 'https://archive.swot.podaac.earthdata.nasa.gov/'
+        http_shapefile_list = [i.replace('s3://', podaac_address) for i in shapefile_list]
+        # new_fullpath = 
+        [sp.run(['wget', shapefile, '-P', shpfile_dir]) for shapefile in http_shapefile_list if not os.path.exists(os.path.join(shpfile_dir, os.path.basename(shapefile)))]
+        return [os.path.join(shpfile_dir, os.path.basename(shapefile)) for shapefile in http_shapefile_list]
+        
+
+
+
+
     def extract(self):
         """Extracts data from SWOT shapefiles and stores in data dictionaries."""
         mapping_dict = {}
         all_shps = []
+
+        if self.hpc:
+            shpfile_dir = os.path.join(self.output_dir, 'shps')
+            self.shapefiles = self.download_shps(self.shapefiles, shpfile_dir)
+
+
         # Extract reach data
         rch_shpfile = [ shpfile for shpfile in self.shapefiles if "Reach" in shpfile ]
         print('Pulling reach files...')
         #timing and re-up creds every 30 mins
-        start = time.time()
+        # start = time.time()
+        
         for shpfile in rch_shpfile:
-            if self.creds: 
+            if not self.hpc: 
                 df = self.get_fsspec(shpfile)
             else:
                 dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
@@ -155,12 +179,12 @@ class ExtractRiver(ExtractStrategy):
                 c = Path(shpfile).name.split('_')[5]
                 p = Path(shpfile).name.split('_')[6]
                 self.obs_times.append(self.cycle_pass[f"{c}_{p}"])
-            end = time.time()
-            time_delta = end-start
-            if time_delta > 1800:
-                self.creds = self.get_creds()
-                creds = self.creds
-                start = time.time()
+            # end = time.time()
+            # time_delta = end-start
+            # if time_delta > 1800:
+            #     self.creds = self.get_creds()
+            #     creds = self.creds
+            #     start = time.time()
 
         mapping_dict[self.swot_id] = all_shps
         import json
@@ -176,10 +200,10 @@ class ExtractRiver(ExtractStrategy):
 
 
         for shpfile in node_shpfile:
-            if self.creds: 
-                # print(shpfile)
+            if not self.hpc: 
                 df = self.get_fsspec(shpfile)
             else:
+                shpfile
                 dbf = f"{shpfile.split('/')[-1].split('.')[0]}.dbf"
                 df = self.get_df(shpfile, dbf)
             extracted = self.extract_node(df, t)
@@ -196,12 +220,12 @@ class ExtractRiver(ExtractStrategy):
                     for i in self.obs_times:
                         print(i)
                     raise ReachNodeMismatch
-            end = time.time()
-            time_delta = end-start
-            if time_delta > 1800:
-                self.creds = self.get_creds()
-                creds = self.creds
-                start = time.time()
+            # end = time.time()
+            # time_delta = end-start
+            # if time_delta > 1800:
+            #     self.creds = self.get_creds()
+            #     creds = self.creds
+            #     start = time.time()
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
