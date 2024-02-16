@@ -15,6 +15,7 @@ create_node_dict(nx, nt)
 """
 
 # Standard imports
+import json
 from pathlib import Path
 import time
 
@@ -63,7 +64,7 @@ class ExtractRiver(ExtractStrategy):
     REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
     # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
     NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "node_q_b","n_good_pix", "xovr_cal_q", "time", "time_str"]
-    def __init__(self, swot_id, shapefiles, cycle_pass, creds, node_ids):
+    def __init__(self, swot_id, shapefiles, cycle_pass, output_dir, creds, node_ids):
         """
         Parameters
         ----------
@@ -79,9 +80,8 @@ class ExtractRiver(ExtractStrategy):
             list of node identifiers that are associated with reach identifier
         """
         
-        super().__init__(swot_id, shapefiles, cycle_pass, creds)
+        super().__init__(swot_id, shapefiles, cycle_pass, output_dir, creds)
         self.node_ids = np.array(node_ids)
-        print('Processing reach', swot_id)
         self.data = {
             "reach": { key: np.array([]) for key in self.REACH_VARS },
             "node": None
@@ -235,8 +235,9 @@ class ExtractRiver(ExtractStrategy):
             for var in self.NODE_VARS:
                 try:
                     self.data["node"][var][nx,t] = df[var].to_numpy()
-                except:
+                except Exception as e:
                     print('indexing error occured dimensions were', 'nx', nx, 'by nt', t)
+                    print(e)
             return True
         else:
             return False       
