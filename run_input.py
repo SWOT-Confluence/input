@@ -201,6 +201,8 @@ def main():
     else:
         run_json = args.rnjson
 
+    index = int(index) if index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+
     exe_data = get_exe_data(index, args.rnjson)
     print(f"Running on reach: {exe_data[0]} (index number {index}).")
 
