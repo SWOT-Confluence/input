@@ -9,6 +9,7 @@ from numpy import reshape,concatenate,zeros,ones,triu,empty,arctan,tan,pi,std,\
    mean,sqrt,var,cov,inf,polyfit,linspace,array,median,piecewise,nanmedian,\
    shape,arange,insert,nan
 import numpy as np
+import numpy.ma as ma
 from scipy import stats,optimize
 # import matplotlib.pyplot as plt
 import copy
@@ -48,19 +49,7 @@ class CalculateHWS:
         nR = 1 # setup to just do one reach at a time
         AddMissingData=True
 
-        if ConstrainHWSwitch and CalcAreaFitOpt== 0:
-            print('If you want to use Fluvial Hypsometry constraint, you also need to do CalcAreaFitOpt > 0')
-            print('Stopping ReachObservations init function...')
-            return
-        
-        self.D=D    
-        self.CalcAreaFitOpt=CalcAreaFitOpt
-        self.ConstrainHWSwitch=ConstrainHWSwitch
-        self.Verbose=Verbose
-
-        AddMissingData=True
-        self.iDelete=RiverData["iDelete"]
-
+        # default variables
         # 1 assign data from input dictionary
         self.h=copy.deepcopy(RiverData["h"])        
         self.w=copy.deepcopy(RiverData["w"])
@@ -71,15 +60,31 @@ class CalculateHWS:
             self.sigw=RiverData["sigw"]
         else:
             self.sigw=σW
-        self.sigS=RiverData["sigS"]    
+        self.sigS=RiverData["sigS"]
+        self.D=D    
+        self.CalcAreaFitOpt=CalcAreaFitOpt
+        self.ConstrainHWSwitch=ConstrainHWSwitch
+        self.Verbose=Verbose
 
+        AddMissingData=True
+        self.iDelete=RiverData["iDelete"]
 
+        self.hall=self.h
+        self.wall=self.w
+        self.dAall=empty( (self.D.nR,self.D.nt)   )
+
+        if ConstrainHWSwitch and CalcAreaFitOpt== 0:
+            print('If you want to use Fluvial Hypsometry constraint, you also need to do CalcAreaFitOpt > 0')
+            print('Stopping ReachObservations init function...')
+            return
+        
         # 2 calculate Area (i.e. H-W) fits for 3 sub-domain using EIV model a la SWOT
         if self.CalcAreaFitOpt > 0:
             #caution! right now this only runs on reach 0 in this set. 
             self.CalcAreaFits()
 
             if self.DataQuality == 'None':
+                print('No data quality')
                 return
 
             # not sure what this was intended to do...
@@ -141,6 +146,7 @@ class CalculateHWS:
             self.hall=reshape(insert(self.h,iInsert,nan,1),(D.ntall,))
             self.wall=reshape(insert(self.w,iInsert,nan,1),(D.ntall,))
             self.dAall=reshape(insert(self.dA,iInsert,nan,1),(D.ntall,))
+            
 
 
 
@@ -359,11 +365,16 @@ class CalculateHWS:
 
         #0 check uncertainties and data quality
         if self.sigw<0:
-             self.sigw=10 
-        igoodh=np.logical_not(np.isnan(self.h[r,:]))
-        igoodw=np.logical_not(np.isnan(self.w[r,:]))
+             self.sigw=10
+        NODATA=-999999999999
+        igoodh=np.logical_not(self.h[r,:] == NODATA)
+        igoodw=np.logical_not(self.w[r,:] == NODATA)
         igoodhw=np.logical_and(igoodh,igoodw)
         ngood=np.sum(igoodhw)
+        print('igoodhw', igoodhw)
+        print('numgood', ngood)
+        print('type numgood')
+        print('this is the data', self.h[r,:])
 
         if ngood > 5:
             hdata=np.reshape(self.h[r,:],(self.D.nt,))
