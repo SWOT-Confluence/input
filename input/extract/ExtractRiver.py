@@ -29,6 +29,9 @@ from random import randint
 # Local imports
 from input.extract.ExtractStrategy import ExtractStrategy
 from input.extract.exceptions import ReachNodeMismatch
+from input.extract.CalculateHWS import CalculateHWS
+from input.extract.HWS_IO import HWS_IO
+from input.extract.DomainHWS import DomainHWS
 
 # Class
 class ExtractRiver(ExtractStrategy):
@@ -170,6 +173,7 @@ class ExtractRiver(ExtractStrategy):
         # Extract node data based on the number of observations found for reach
         node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
         self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
+        nt = len(self.obs_times)
         t = 0 # this and obs time off, check shape file if there is error
         # map out node shapefiles as well
         #is there a cas where there is a reach shapefile and not a node shapefile
@@ -205,7 +209,15 @@ class ExtractRiver(ExtractStrategy):
             
         # Calculate d_x_area
         if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
-            self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
+            IO=HWS_IO(swot_dataset = self.data, nt = nt)
+            D=DomainHWS(IO.ObsData)
+            hws_obj = CalculateHWS(D, IO.ObsData)
+
+            self.data["reach"]["d_x_area"] = hws_obj.dAall
+
+
+        # if np.all((self.data["reach"]["d_x_area"] == self.FLOAT_FILL)):
+        #     self.data["reach"]["d_x_area"] = calculate_d_x_a(self.data["reach"]["wse"], self.data["reach"]["width"])    # Temp calculation of dA for current dataset
         
         # Append slope and d_x_area to node level
         self.append_node("slope", self.node_ids.shape[0])
