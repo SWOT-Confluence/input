@@ -499,13 +499,20 @@ class CalculateHWS:
              def piecewise_linear2(x, x0, y0, x1, k1, k2, k3):
                  return piecewise(x, [x < x0, ((x>=x0)&(x<x1)), x>=x1], \
                      [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0, lambda x:k3*x + k2*x1+y0-k2*x0-k3*x1])
+             try:
+                 p2 , e2 = optimize.curve_fit(piecewise_linear2, self.h[r,igoodhw], self.w[r,igoodhw],\
+                        bounds=([lb[0],-inf,lb[0],0,0,0],[ub[0],inf,ub[0],inf,inf,inf]),\
+                        p0=[init_params_outer[0],mean(self.w[r,igoodhw]),init_params_outer[1],0,0,0] )
 
-             p2 , e2 = optimize.curve_fit(piecewise_linear2, self.h[r,igoodhw], self.w[r,igoodhw],\
-                     bounds=([lb[0],-inf,lb[0],0,0,0],[ub[0],inf,ub[0],inf,inf,inf]),\
-                     p0=[init_params_outer[0],mean(self.w[r,igoodhw]),init_params_outer[1],0,0,0] )
- 
-             #this specifies the two WSE breakpoints
-             params_outer_hat=[p2[0],p2[2]]
+                 #this specifies the two WSE breakpoints
+                 params_outer_hat=[p2[0],p2[2]]
+             except:
+                 params_outer_hat,WSEmin,WSErange = self.SetInitParamsOuter(r,igoodhw)
+                 p2 = ['foo','foo','foo']
+                 p2[0] = params_outer_hat[0]
+                 p2[2] = params_outer_hat[1]
+
+                 
 
              #3.3.2 compute parameters
              ReturnSolution=True

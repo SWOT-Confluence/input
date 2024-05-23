@@ -169,7 +169,11 @@ class ExtractRiver(ExtractStrategy):
         import json
         with open(f'/mnt/data/swot/creation_logs/{self.swot_id}.json', 'w') as fp:
             json.dump(mapping_dict, fp)
-        self.obs_times = list(set(self.obs_times))
+        print('check here for duplicate obs time')
+        print(self.obs_times)
+        print('there were', len(self.obs_times), 'before')
+        print('now there are', len(list(set(self.obs_times))))
+        self.obs_times = list(self.obs_times)
         # Extract node data based on the number of observations found for reach
         node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
         self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
