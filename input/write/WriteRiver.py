@@ -273,6 +273,29 @@ class WriteRiver(WriteStrategy):
             + "indicates a suspect measurement, 2 indicates a degraded " \
                 + "quality measurement, and 3 indicates a bad measurement."
         node_q[:] = np.nan_to_num(data["node"]["node_q"], copy=True, nan=self.INT_FILL)
+        
+        node_q_b = dataset.createVariable("node_q_b", "i4", ("nx", "nt"),
+            fill_value=self.INT_FILL)
+        node_q_b.long_name = "bitwise quality indicator for the node"
+        node_q_b.standard_name = "status_flag"
+        node_q_b.short_name = "node_qual_bitwise"
+        node_q_b.flag_meanings = "sig0_qual_suspect classification_qual_suspect " \
+            + "geolocation_qual_suspect water_fraction_suspect blocking_width_suspect " \
+            + "bright_land few_sig0_observations few_area_observations " \
+            + "few_wse_observations far_range_suspect near_range_suspect " \
+            + "classification_qual_degraded geolocation_qual_degraded wse_outlier " \
+            + "wse_bad no_sig0_observations no_area_observations no_wse_observations no_observations"
+        node_q_b.flag_masks = "1 2 4 8 16 128 512 1024 2048 8192 16384 262144 524288 4194304 8388608 16777216 33554432 67108864 134217728 268435456"
+        node_q_b.valid_min = 0
+        node_q_b.valid_max = 533491359
+        node_q_b.comment = "Bitwise quality indicator for the node " \
+            + "measurement. If this word is interpreted as an unsigned " \
+            + "integer, a value of 0 indicates good data, values greater " \
+            + "than 0 but less than 262144 represent suspect data, values " \
+            + "greater than or equal to 262144 but less than 4194304 " \
+            + "represent degraded data, and values greater than or equal to " \
+            + "4194304 represent bad data."
+        node_q_b[:] = np.nan_to_num(data["node"]["node_q_b"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -316,24 +339,6 @@ class WriteRiver(WriteStrategy):
             + "of 0, 1, and 2 indicate that the node is not ice covered, " \
             + "partially ice covered, and fully ice covered, respectively."
         ice_dyn_f[:] = np.nan_to_num(data["node"]["ice_dyn_f"], copy=True, nan=self.INT_FILL)
-
-        node_q_b = dataset.createVariable("node_q_b", "i4", ("nx", "nt"),
-            fill_value=self.INT_FILL)
-        node_q_b.long_name = "bitwise quality indicator for the node"
-        node_q_b.standard_name = "status_flag"
-        node_q_b.short_name = "node_qual_bitwise"
-        node_q_b.flag_meanings = "sig0_qual_suspect classification_qual_suspect geolocation_qual_suspect water_fraction_suspect blocking_width_suspect bright_land few_sig0_observations few_area_observations few_wse_observations far_range_suspect near_range_suspect classification_qual_degraded geolocation_qual_degraded wse_outlier wse_bad no_sig0_observations no_area_observations no_wse_observations no_observations"
-        node_q_b.flag_masks = "1 2 4 8 16 128 512 1024 2048 8192 16384 262144 524288 8388608 16777216 33554432 67108864 134217728 268435456"
-        node_q_b.valid_min = 0
-        node_q_b.valid_max = 529297055
-        node_q_b.comment = "Bitwise quality indicator for the node " \
-            + "measurement. If this word is interpreted as an unsigned " \
-            + "integer, a value of 0 indicates good data, values greater " \
-            + "than 0 but less than 262144 represent suspect data, values " \
-            + "greater than or equal to 262144 but less than 8388608 " \
-            + "represent degraded data, and values greater than or equal to " \
-            + "8388608 represent bad data."
-        node_q_b[:] = np.nan_to_num(data["node"]["node_q_b"], copy=True, nan=self.INT_FILL)
 
         n_good_pix = dataset.createVariable("n_good_pix", "i4", ("nx", "nt"),
             fill_value = self.INT_FILL)
@@ -530,6 +535,27 @@ class WriteRiver(WriteStrategy):
             + "indicates a suspect measurement, 2 indicates a degraded " \
             + "measurement, and 3 indicates a bad measurement."
         reach_q[:] = np.nan_to_num(data["reach"]["reach_q"], copy=True, nan=self.INT_FILL)
+        
+        reach_q_b = dataset.createVariable("reach_q_b", "i4", ("nx", "nt"),
+            fill_value=self.INT_FILL)
+        reach_q_b.long_name = "bitwise quality indicator for the reach"
+        reach_q_b.standard_name = "status_flag"
+        reach_q_b.short_name = "reach_qual_bitwise"
+        reach_q_b.flag_meanings = "classification_qual_suspect geolocation_qual_suspect water_fraction_suspect" \
+            + "bright_land few_area_observations few_wse_observations far_range_suspect" \
+            + "near_range_suspect partially_observed classification_qual_degraded" \
+            + "geolocation_qual_degraded lake_flagged below_min_fit_points no_area_observations" \
+            + "no_wse_observations no_observations"
+        reach_q_b.flag_masks = "2 4 8 128 1024 2048 8192 16384 32768 262144 524288 4194304 33554432 67108864 134217728 268435456"
+        reach_q_b.valid_min = 0
+        reach_q_b.valid_max = 508357774
+        reach_q_b.comment = "Bitwise quality indicator for the reach measurements. " \
+            + "If this word is interpreted as an unsigned integer, a value of 0 " \
+            + "indicates good data, values greater than 0 but less than 262144 " \
+            + "represent suspect data, values greater than or equal to 262144 " \
+            + "but less than 4194304 represent degraded data, and values greater " \
+            + "than or equal to 4194304 represent bad data."
+        reach_q_b[:] = np.nan_to_num(data["reach"]["reach_q_b"], copy=True, nan=self.INT_FILL)
 
         dark_frac = dataset.createVariable("dark_frac", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
