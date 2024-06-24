@@ -176,7 +176,7 @@ class ExtractRiver(ExtractStrategy):
         self.obs_times = list(self.obs_times)
         # Extract node data based on the number of observations found for reach
         # node_shpfile = [ shpfile for shpfile in self.shapefiles if "Node" in shpfile ]
-        node_shpfile = [i.replace('Reach', 'Node') for i in mapping_dict[self.swot_id]]
+        node_shpfile = [i.replace('Reach', 'Node') for i in mapping_dict[self.swot_id]]#
         self.data["node"] = create_node_dict(self.node_ids.shape[0], len(self.obs_times))
         nt = len(self.obs_times)
         t = 0 # this and obs time off, check shape file if there is error
