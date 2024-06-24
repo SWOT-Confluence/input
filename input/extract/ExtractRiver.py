@@ -64,9 +64,8 @@ class ExtractRiver(ExtractStrategy):
     
     # Constants
     FLOAT_FILL = -999999999999
-    REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "reach_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str"]
-    # NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_pix", "xovr_cal_q", "time", "time_str"]
-    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "node_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f","n_good_pix", "xovr_cal_q", "time", "time_str"]
+    REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "reach_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str", "xtrk_dist"]
+    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "node_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f","n_good_pix", "xovr_cal_q", "time", "time_str", "xtrk_dist"]
     def __init__(self, swot_id, shapefiles, cycle_pass, output_dir, creds, node_ids):
         """
         Parameters
@@ -327,6 +326,7 @@ def create_node_dict(nx, nt):
         "node_q_b" : np.full((nx, nt), -999, dtype=int),
         "n_good_pix" : np.full((nx, nt), -99999999, int),
         "xovr_cal_q" : np.full((nx, nt), -999, int),
+        "xtrk_dist": np.full((nx, nt), -999, int),
         "time": np.full((nx, nt), np.nan, dtype=np.float64),
         "time_str": np.full((nx, nt), np.nan, dtype="S20")
     }

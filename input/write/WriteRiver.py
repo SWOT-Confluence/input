@@ -361,7 +361,20 @@ class WriteRiver(WriteStrategy):
         xovr_cal_q.comment = "Quality of the cross-over calibration. A value " \
             + "of 0 indicates a nominal measurement, 1 indicates a suspect " \
             + "measurement, and 2 indicates a bad measurement."
-        xovr_cal_q[:] = np.nan_to_num(data["node"]["xovr_cal_q"], copy=True, nan=self.INT_FILL)  
+        xovr_cal_q[:] = np.nan_to_num(data["node"]["xovr_cal_q"], copy=True, nan=self.INT_FILL)
+        
+        xtrk_dist = dataset.createVariable("xtrk_dist", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        xtrk_dist.long_name = "distance to the satellite ground track"
+        xtrk_dist.short_name = "cross_track_distance"
+        xtrk_dist.units = "m"
+        xtrk_dist.valid_min = -75000
+        xtrk_dist.valid_max = 75000
+        xtrk_dist.comment = "Distance of the observed node location from the " \
+            + "spacecraft nadir track. A negative value indicates the left side " \
+            + "of the swath, relative to the spacecraft velocity vector. A " \
+            + "positive value indicates the right side of the swath."
+        xtrk_dist[:] = np.nan_to_num(data["node"]["xtrk_dist"], copy=True, nan=self.FLOAT_FILL)
 
     def __write_reach_vars(self, dataset, data, reach_id):
         """Create and write reach-level variables to NetCDF4 dataset.
@@ -648,3 +661,16 @@ class WriteRiver(WriteStrategy):
             + "of 0 indicates a nominal measurement, 1 indicates a suspect " \
             + "measurement, and 2 indicates a bad measurement."
         xovr_cal_q[:] = np.nan_to_num(data["reach"]["xovr_cal_q"], copy=True, nan=self.INT_FILL)
+        
+        xtrk_dist = dataset.createVariable("xtrk_dist", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        xtrk_dist.long_name = "distance to the satellite ground track"
+        xtrk_dist.short_name = "cross_track_distance"
+        xtrk_dist.units = "m"
+        xtrk_dist.valid_min = -75000
+        xtrk_dist.valid_max = 75000
+        xtrk_dist.comment = "Average distance of the observed node locations " \
+            + "in the reach from the spacecraft nadir track. A negative value " \
+            + "indicates the left side of the swath, relative to the spacecraft " \
+            + "velocity vector. A positive value indicates the right side of the swath."
+        xtrk_dist[:] = np.nan_to_num(data["reach"]["xtrk_dist"], copy=True, nan=self.FLOAT_FILL)
