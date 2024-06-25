@@ -180,7 +180,7 @@ class WriteRiver(WriteStrategy):
             + "and with the same corrections and geophysical fields applied as " \
             + "wse. The units are m/m. The upstream or downstream direction " \
             + "is defined by the prior river database. A positive slope " \
-            + "means that the downstream WSE is lower."
+            + "means that the downstream WSE is lower and appended to node."
         slope[:] = np.nan_to_num(data["node"]["slope"], copy=True, nan=self.FLOAT_FILL)
 
         slope_u = dataset.createVariable("slope_u", "f8", ("nx", "nt"),
@@ -191,8 +191,18 @@ class WriteRiver(WriteStrategy):
         slope_u.valid_max = 0.1
         slope_u.comment = "Total one-sigma uncertainty (random and " \
             + "systematic) in the water surface slope, including " \
-            + "uncertainties of corrections and variation about the fit."
+            + "uncertainties of corrections and variation about the fit and appended to node."
         slope_u[:] = np.nan_to_num(data["node"]["slope_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        slope_r_u = dataset.createVariable("slope_r_u", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        slope_r_u.long_name = "random uncertainty in the water surface slope"
+        slope_r_u.units = "m/m"
+        slope_r_u.valid_min = 0
+        slope_r_u.valid_max = 0.1
+        slope_r_u.comment = "Random-only component of the uncertainty in the water surface slope " \
+            + "and appended to node."
+        slope_r_u[:] = np.nan_to_num(data["node"]["slope_r_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nx", "nt"),
             fill_value=self.FLOAT_FILL)
@@ -218,6 +228,16 @@ class WriteRiver(WriteStrategy):
             + "uncertainties of corrections and variation about the fit. " \
             + "Extracted from reach-level and appended to node."
         slope2_u[:] = np.nan_to_num(data["node"]["slope2_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        slope2_r_u = dataset.createVariable("slope2_r_u", "f8", ("nx", "nt"),
+            fill_value=self.FLOAT_FILL)
+        slope2_r_u.long_name = "random uncertainty in the enhanced water surface slope"
+        slope2_r_u.units = "m/m"
+        slope2_r_u.valid_min = 0
+        slope2_r_u.valid_max = 0.1
+        slope2_r_u.comment = "Random-only component of the uncertainty in the enhanced " \
+            + "water surface slope and appended to node."
+        slope2_r_u[:] = np.nan_to_num(data["node"]["slope2_r_u"], copy=True, nan=self.FLOAT_FILL)
 
         width = dataset.createVariable("width", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -227,6 +247,15 @@ class WriteRiver(WriteStrategy):
         width.valid_max = 100000
         width.comment = "Node width."
         width[:] = np.nan_to_num(data["node"]["width"], copy=True, nan=self.FLOAT_FILL)
+        
+        p_width = dataset.createVariable("p_width", "f8", ("nx", "nt"), 
+            fill_value = self.FLOAT_FILL)
+        p_width.long_name = "node width"
+        p_width.units = "m"
+        p_width.valid_min = 10
+        p_width.valid_max = 100000
+        p_width.comment = "Node width from prior river database."
+        p_width[:] = np.nan_to_num(data["node"]["p_width"], copy=True, nan=self.FLOAT_FILL)
 
         width_u = dataset.createVariable("width_u", "f8", ("nx", "nt"), 
             fill_value = self.FLOAT_FILL)
@@ -258,6 +287,15 @@ class WriteRiver(WriteStrategy):
             + "in the node WSE, including uncertainties of corrections, and " \
             + "variation about the fit."
         wse_u[:] = np.nan_to_num(data["node"]["wse_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        wse_r_u = dataset.createVariable("wse_r_u", "f8", ("nx", "nt"), fill_value = self.FLOAT_FILL)
+        wse_r_u.long_name = "random-only uncertainty in the water surface elevation"
+        wse_r_u.units = "m"
+        wse_r_u.valid_min = 0.0
+        wse_r_u.valid_max = 999999
+        wse_r_u.comment = "Random-only uncertainty component in the node WSE, including " \
+            + "uncertainties of corrections, and variation about the fit."
+        wse_r_u[:] = np.nan_to_num(data["node"]["wse_r_u"], copy=True, nan=self.FLOAT_FILL)
 
         node_q = dataset.createVariable("node_q", "i4", ("nx", "nt"), 
             fill_value=self.INT_FILL)
@@ -470,6 +508,15 @@ class WriteRiver(WriteStrategy):
             + "systematic) in the water surface slope, including " \
             + "uncertainties of corrections and variation about the fit."
         slope_u[:] = np.nan_to_num(data["reach"]["slope_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        slope_r_u = dataset.createVariable("slope_r_u", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        slope_r_u.long_name = "random uncertainty in the water surface slope"
+        slope_r_u.units = "m/m"
+        slope_r_u.valid_min = 0
+        slope_r_u.valid_max = 0.1
+        slope_r_u.comment = "Random-only component of the uncertainty in the water surface slope."
+        slope_r_u[:] = np.nan_to_num(data["reach"]["slope_r_u"], copy=True, nan=self.FLOAT_FILL)
 
         slope2 = dataset.createVariable("slope2", "f8", ("nt",),
             fill_value=self.FLOAT_FILL)
@@ -495,6 +542,15 @@ class WriteRiver(WriteStrategy):
             + "uncertainties of corrections and variation about the fit."
         slope2_u[:] = np.nan_to_num(data["reach"]["slope2_u"], copy=True, nan=self.FLOAT_FILL)
         
+        slope2_r_u = dataset.createVariable("slope2_r_u", "f8", ("nt",),
+            fill_value=self.FLOAT_FILL)
+        slope2_r_u.long_name = "random uncertainty in the enhanced water surface slope"
+        slope2_r_u.units = "m/m"
+        slope2_r_u.valid_min = 0
+        slope2_r_u.valid_max = 0.1
+        slope2_r_u.comment = "Random-only component of the uncertainty in the enhanced water surface slope."
+        slope2_r_u[:] = np.nan_to_num(data["reach"]["slope2_r_u"], copy=True, nan=self.FLOAT_FILL)
+        
         width = dataset.createVariable("width", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
         width.long_name = "reach width"
@@ -503,6 +559,15 @@ class WriteRiver(WriteStrategy):
         width.valid_max = 100000
         width.comment = "Reach width."
         width[:] = np.nan_to_num(data["reach"]["width"], copy=True, nan=self.FLOAT_FILL)
+        
+        p_width = dataset.createVariable("p_width", "f8", ("nt",), 
+            fill_value=self.FLOAT_FILL)
+        p_width.long_name = "reach width"
+        p_width.units = "m"
+        p_width.valid_min = 10
+        p_width.valid_max = 100000
+        p_width.comment = "Reach width from the prior river database."
+        p_width[:] = np.nan_to_num(data["reach"]["p_width"], copy=True, nan=self.FLOAT_FILL)
 
         width_u = dataset.createVariable("width_u", "f8", ("nt",), 
             fill_value=self.FLOAT_FILL)
@@ -534,6 +599,25 @@ class WriteRiver(WriteStrategy):
             + "in the reach WSE, including uncertainties of corrections, and " \
             + "variation about the fit."
         wse_u[:] = np.nan_to_num(data["reach"]["wse_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        wse_r_u = dataset.createVariable("wse_r_u", "f8", ("nt",), fill_value=self.FLOAT_FILL)
+        wse_r_u.long_name = "random-only uncertainty in the water surface elevation"
+        wse_r_u.units = "m"
+        wse_r_u.valid_min = 0.0
+        wse_r_u.valid_max = 999999
+        wse_r_u.comment = "Random-only component of the uncertainty in the reach WSE, " \
+            + "including uncertainties of corrections, and variation about the fit."
+        wse_r_u[:] = np.nan_to_num(data["reach"]["wse_r_u"], copy=True, nan=self.FLOAT_FILL)
+        
+        p_length = dataset.createVariable("p_length", "f8", ("nt",), 
+            fill_value=self.FLOAT_FILL)
+        p_length.long_name = "length of reach"
+        p_length.units = "m"
+        p_length.valid_min = 100
+        p_length.valid_max = 100000
+        p_length.comment = "Length of the reach from the prior river database. " \
+            + "This value is used to compute the reach width from the water surface area."
+        p_length[:] = np.nan_to_num(data["reach"]["p_length"], copy=True, nan=self.FLOAT_FILL)
 
         reach_q = dataset.createVariable("reach_q", "i4", ("nt",),
             fill_value=self.INT_FILL)

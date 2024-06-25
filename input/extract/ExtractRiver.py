@@ -64,8 +64,18 @@ class ExtractRiver(ExtractStrategy):
     
     # Constants
     FLOAT_FILL = -999999999999
-    REACH_VARS = ["slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", "wse_u", "d_x_area", "d_x_area_u", "reach_q", "reach_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", "xovr_cal_q", "time", "time_str", "xtrk_dist"]
-    NODE_VARS = ["width", "width_u", "wse", "wse_u", "node_q", "node_q_b", "dark_frac", "ice_clim_f", "ice_dyn_f","n_good_pix", "xovr_cal_q", "time", "time_str", "xtrk_dist"]
+    REACH_VARS = [
+        "slope", "slope_u", "slope2", "slope2_u", "width", "width_u", "wse", 
+        "wse_u", "d_x_area", "d_x_area_u", "reach_q", "reach_q_b", "dark_frac",
+        "ice_clim_f", "ice_dyn_f", "partial_f", "n_good_nod", "obs_frac_n", 
+        "xovr_cal_q", "time", "time_str", "xtrk_dist", "p_width", "p_length", 
+        "wse_r_u", "slope_r_u", "slope2_r_u"
+    ]
+    NODE_VARS = [
+        "width", "width_u", "wse", "wse_u", "node_q", "node_q_b", "dark_frac", 
+        "ice_clim_f", "ice_dyn_f","n_good_pix", "xovr_cal_q", "time", 
+        "time_str", "xtrk_dist", "p_width", "wse_r_u"
+    ]
     def __init__(self, swot_id, shapefiles, cycle_pass, output_dir, creds, node_ids):
         """
         Parameters
@@ -226,8 +236,10 @@ class ExtractRiver(ExtractStrategy):
         # Append slope and d_x_area to node level
         self.append_node("slope", self.node_ids.shape[0])
         self.append_node("slope_u", self.node_ids.shape[0])
+        self.append_node("slope_r_u", self.node_ids.shape[0])
         self.append_node("slope2", self.node_ids.shape[0])
         self.append_node("slope2_u", self.node_ids.shape[0])
+        self.append_node("slope2_r_u", self.node_ids.shape[0])
         self.append_node("d_x_area", self.node_ids.shape[0])
         self.append_node("d_x_area_u", self.node_ids.shape[0])
         
@@ -311,12 +323,16 @@ def create_node_dict(nx, nt):
     return {
         "slope" : np.full((nx, nt), np.nan, dtype=np.float64),
         "slope_u" : np.full((nx, nt), np.nan, dtype=np.float64),
+        "slope_r_u" : np.full((nx, nt), np.nan, dtype=np.float64),
         "slope2" : np.full((nx, nt), np.nan, dtype=np.float64),
         "slope2_u" : np.full((nx, nt), np.nan, dtype=np.float64),
+        "slope2_r_u" : np.full((nx, nt), np.nan, dtype=np.float64),
         "width" : np.full((nx, nt), np.nan, dtype=np.float64),
+        "p_width" : np.full((nx, nt), np.nan, dtype=np.float64),
         "width_u": np.full((nx, nt), np.nan, dtype=np.float64),
         "wse" : np.full((nx, nt), np.nan, dtype=np.float64),
         "wse_u" : np.full((nx, nt), np.nan, dtype=np.float64),
+        "wse_r_u" : np.full((nx, nt), np.nan, dtype=np.float64),
         "d_x_area": np.full((nx, nt), np.nan, dtype=np.float64),
         "d_x_area_u": np.full((nx, nt), np.nan, dtype=np.float64),
         "node_q" : np.full((nx, nt), -999, dtype=int),
