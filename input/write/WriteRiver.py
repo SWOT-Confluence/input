@@ -633,7 +633,7 @@ class WriteRiver(WriteStrategy):
             + "measurement, and 3 indicates a bad measurement."
         reach_q[:] = np.nan_to_num(data["reach"]["reach_q"], copy=True, nan=self.INT_FILL)
         
-        reach_q_b = dataset.createVariable("reach_q_b", "i4", ("nx", "nt"),
+        reach_q_b = dataset.createVariable("reach_q_b", "i4", ("nt",),
             fill_value=self.INT_FILL)
         reach_q_b.long_name = "bitwise quality indicator for the reach"
         reach_q_b.standard_name = "status_flag"
