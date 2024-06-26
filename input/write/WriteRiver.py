@@ -27,8 +27,7 @@ class WriteRiver(WriteStrategy):
     __write_reach_vars(dataset, reach_id)
         writes reach level data to NetCDF file in reach group
     """
-
-    def __init__(self, swot_id, output_dir, node_ids):
+    def __init__(self, swot_id, node_ids, reach_df, node_df_list, output_dir):
         """
         Parameters
         ----------
