@@ -17,75 +17,54 @@ import json
 import pandas as pd
 import requests
 import numpy as np
-# import os
-# from pathlib import Path
-# import sys
+import glob
+import netCDF4
+import os
+import numpy as np
 
-# # Third-party imports
-# import boto3
-# import botocore
-# import glob
-# from random import randint
-# from time import sleep
-
-# # Local imports
-# from input.Input import Input
-# from input.extract.ExtractLake import ExtractLake
-# from input.extract.ExtractRiver import ExtractRiver
-# from input.extract.exceptions import ReachNodeMismatch
-# from input.write.WriteLake import WriteLake
+# Local imports
 import input.write.HydrocronWrite as HCWrite
 
-# def create_args():
-#     """Create and return argparser with arguments."""
+def create_args():
+    """Create and return argparser with arguments."""
 
-    # arg_parser = argparse.ArgumentParser(description="Retrieve a list of S3 URIs")
-    # arg_parser.add_argument("-i",
-    #                         "--index",
-    #                         type=int,
-    #                         help="Index to specify input data to execute on, value of -235 indicates AWS selection")
-    # arg_parser.add_argument("-r",
-    #                         "--rnjson",
-    #                         type=str,
-    #                         help="Path to the reach node json file or lakes json file",
-    #                         default="reach_node.json")
-    # arg_parser.add_argument("-p",
-    #                         "--cpjson",
-    #                         type=str,
-    #                         help="Path to the cycle pass json file",
-    #                         default="cycle_pass.json")
-    # arg_parser.add_argument("-s",
-    #                         "--shpjson",
-    #                         type=str,
-    #                         help="Path to the shapefile list json file",
-    #                         default="s3_list_local.json")
-    # arg_parser.add_argument("-e",
-    #                         "--rshpjson",
-    #                         type=str,
-    #                         help="Path to the reach S3 list json file",
-    #                         default="s3_reach.json")
-    # arg_parser.add_argument("-c",
-    #                         "--context",
-    #                         type=str,
-    #                         choices=["river", "lake"],
-    #                         help="Context to retrieve data for: 'river' or 'lake'",
-    #                         default="river")
-    # arg_parser.add_argument("-d",
-    #                         "--directory",
-    #                         type=str,
-    #                         help="Directory to output data to")
-    # arg_parser.add_argument("-l",
-    #                         "--local",
-    #                         action='store_true',
-    #                         help="Indicates local run of program")
-    # arg_parser.add_argument("-f",
-    #                         "--shapefiledir",
-    #                         type=str,
-    #                         help="Directory of local shapefiles")
-    # arg_parser.add_argument("-n",
-    #                         "--chunk_number",
-    #                         type=int,
-    #                         help="Number indicating what chunk to run on ")
+    arg_parser = argparse.ArgumentParser(description="Retrieve a list of S3 URIs")
+    arg_parser.add_argument("-i",
+                            "--index",
+                            type=int,
+                            help="Index to specify input data to execute on, value of -235 indicates AWS selection")
+    
+    arg_parser.add_argument("-r",
+                            "--reachesjson",
+                            type=str,
+                            help="Path to the reaches.json",
+                            default="/mnt/data/reaches_of_interest.json")
+
+    arg_parser.add_argument("-o",
+                            "--outdir",
+                            type=str,
+                            help="Directory to output data to",
+                            default="/mnt/data/swot/")
+    
+    arg_parser.add_argument("-s",
+                        "--sworddir",
+                        type=str,
+                        help="Directory containing SWORD files",
+                        default="/mnt/data/sword/")
+
+    arg_parser.add_argument("-t",
+                    "--time",
+                    type=str,
+                    help="Time parameter to search",
+                    default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
+    
+    arg_parser.add_argument("-v",
+                "--swordversion",
+                type=str,
+                help="Version of sword we are using",
+                default="16")
+
+
     # return arg_parser
 
 def get_exe_data(index, json_file):
@@ -107,8 +86,43 @@ def get_exe_data(index, json_file):
             data = json.load(json_file)[index]
         return data
 
-def find_node_ids_given_reach_id(sword, reach_id):
-    return ['12554000060011','12554000060011']
+
+
+
+
+
+
+
+def get_reach_nodes(rootgrp, reach_id):
+
+
+    # add mapping
+
+    all_nodes = []
+
+    # files = glob.glob(os.path.join(data_dir, '*'))
+    # print(f'Searching across {len(files)} continents for nodes...')
+
+    # for i in files:
+
+        # rootgrp = netCDF4.Dataset(i, "r", format="NETCDF4")
+
+    node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
+
+    if len(node_ids_indexes[0])!=0:
+        for y in node_ids_indexes[0]:
+            node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
+            all_nodes.append(node_id)
+
+
+
+        # all_nodes.extend(node_ids[0].tolist())
+
+    rootgrp.close()
+
+    print(f'Found {len(set(all_nodes))} nodes...')
+    return list(set(all_nodes))
+
 
 def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
     baseurl= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
@@ -206,79 +220,83 @@ def prep_output(reach_df, node_df_list):
     # print(output_data['node']['time_str'])
     return output_data
             
+def get_reachids(reachjson,index_to_run):
+    """Extract and return a list of reach identifiers from json file.
+    
+    Parameters
+    ----------
+    reachjson : str
+        Path to the file that contains the list of reaches to process
+    
+        
+    Returns
+    -------
+    list
+        List of reaches identifiers
+    """
 
+    if index_to_run == -235:
+        index=int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+    else:
+        index=index_to_run
+  
+    with open(reachjson) as jsonfile:
+        data = json.load(jsonfile)
 
+    return data[index]
+
+def load_sword(reachid, sworddir, sword_version):
+    cont_map = {
+        '1':'af',
+        '4':'as',
+        '3':'as',
+        '2':'eu',
+        '7':'na',
+        '8':'na',
+        '9':'na',
+        '5':'oc',
+        '6':'sa'
+    }
+    sword_path = os.path.join(sworddir, cont_map[sword_version] + f'_sword_v{sword_version}.nc')
+    sword = netCDF4.Dataset(sword_path)
+
+    return sword
 
 def main():
     """Main method to execute Input class methods."""
-    
     start = datetime.now()
 
-    # # Command line arguments
-    # arg_parser = create_args()
-    # args = arg_parser.parse_args()
-    # index = args.index
-        
-    # # Get input data to run on
-    # if args.chunk_number is not None:
-    #     # run_jsons = glob.glob(args.rnjson.replace('.json', '*'))
-    #     run_json = args.rnjson.replace('.json', f'_{args.chunk_number}.json')
-    # else:
-    #     run_json = args.rnjson
+    # Command line arguments
+    arg_parser = create_args()
+    args = arg_parser.parse_args()
 
-    # index = int(index) if index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
-
-    # exe_data = get_exe_data(index, args.rnjson)
-
-    # reachid = exe_data[0]
-    # print(f"Running on reach: {reachid} (index number {index}).")
-
-    # setup pull
-    sword = 'foo'
+    index_to_run = args.index
+    reachjson = args.reachesjson
+    outdir = args.outdir
+    sworddir = args.sworddir
+    time = args.time
 
     # pull sword and find all reach data
-    reachid='12554000061'
+    reachid = get_reachids(reachjson,index_to_run)
 
-    nodeids = find_node_ids_given_reach_id(sword, reachid)
-    nx = len(nodeids)
+    # map reach id to sword and load sword
+    sword = load_sword(reachid, sworddir)
 
-    time='&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&'
+    # find node ids for reach, also close sos
+    nodeids = get_reach_nodes(sword, reachid)
 
+    # Pull observation data using hydrocron
     reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, time)
 
+    # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
-# swot_id, node_ids, data, output_dir
-    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data, output_dir = '.')
 
-    
-
-    # except ReachNodeMismatch:
-    #     print("The observation times for reaches did not match the observation " \
-    #         + "times for nodes.\nThis indicates an error and you should " \
-    #         + "compare the cycle/passes for reaches and nodes.\nExiting program...")
-    #     sys.exit(1)
+    # write out parsed data to timeseries file
+    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data, output_dir = outdir)
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")
 
-
-
-
-#     # setup pull
-# sword = 'foo'
-
-# # pull sword and find all reach data
-# reachid='12554000061'
-
-# nodeids = find_node_ids_given_reach_id(sword, reachid)
-# nx = len(nodeids)
-
-# time='&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&'
-
-# reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, time)
-
-# nx = len(nodeids)
-# nt = len(reach_df)
 
 if __name__ == "__main__":
     main()
