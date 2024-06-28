@@ -65,7 +65,7 @@ def create_args():
                 default="16")
 
 
-    # return arg_parser
+    return arg_parser
 
 def get_exe_data(index, json_file):
         """Retrun dictionary of data required to execution input operations.
@@ -136,7 +136,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
         
     dataformat='geojson' #switch this to csv to avoid getting all the data
 
-    url=baseurl + f'feature={reach_or_node}&feature_id=' +  id_of_interest + time + 'output=' + dataformat + '&fields=' + fieldstrs
+    url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + time + 'output=' + dataformat + '&fields=' + fieldstrs
 
 
     # pull data from HydroChron into res variable
@@ -175,27 +175,89 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
 
 def process_reach_via_hydrocron(reachid, nodeids, time):
 
-      reach_fields = ['pass_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
-            'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
-            'width_u', 'wse', 'wse_u', 'xovr_cal_q']
-      
-      # node_fields = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-      #             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
-      #       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
-      node_fields = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-                  'node_q', 'node_q_b','reach_id','time', 'time_str', 'width', 
-            'width_u', 'wse', 'wse_u', 'xovr_cal_q']
-
-      reach_df = pull_via_hydrocron('Reach', reachid, reach_fields, time)
-
-      node_df_list = []
-      for nodeid in nodeids:
-            node_df = pull_via_hydrocron('Node', nodeid, node_fields, time)
-            node_df_list.append(node_df)
+    reach_fields = ['pass_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
+        'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
+        'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
 
 
+    # node_fields = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+    #             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
+    #       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
+    node_fields = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+                'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
+        'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
 
-      return reach_df, node_df_list
+    reach_df = pull_via_hydrocron('Reach', reachid, reach_fields, time)
+    # reach_df['time_str_parse'] = reach_df['time_str'].str[:10]
+    reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+    # right_df['time_dt'] = pd.to_datetime(right_df['time_str'])
+    # print('reach parse')
+    # print(reach_df['time_str_parse'])
+    # print(reach_df.shape, 'reach_shape')
+
+
+
+
+    node_df_list = []
+    for nodeid in nodeids:
+        node_df = pull_via_hydrocron('Node', nodeid, node_fields, time)
+
+        # filter by reach observed days and average duplicate indexes
+        # node_df['time_str_parse'] = node_df['time_str'].str[:10]
+        # node_df = node_df.reset_index()
+        # node_df = node_df.rename(columns=lambda x: x + '_right' if x != 'time_str_parse' else x)
+        # merged = pd.merge(reach_df, node_df,on='time_str_parse', how='left')
+        # result_df = merged[['time_str_parse'] + [col for col in node_df.columns if col != 'time_str_parse']]
+        # result_df = result_df.rename(columns=lambda x: x.replace('_right', '') if x != 'time_str_parse' else x)
+        # result_df = result_df.groupby('time_str_parse').mean()
+
+        # Convert datetime strings to datetime objects
+        # reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+        node_df['datetime'] = pd.to_datetime(node_df['time_str'], errors='coerce')
+
+        # Extract dates
+        reach_df['date'] = reach_df['datetime'].dt.date
+        node_df['date'] = node_df['datetime'].dt.date
+
+        # Function to find the closest datetime
+        def find_closest_date(row, df):
+            date = row['date']
+            if pd.isna(date):
+                return pd.Series([None] * len(node_df.columns))
+            df_filtered = df[df['date'] == date]
+            if df_filtered.empty:
+                return pd.Series([None] * len(node_df.columns))
+            closest_row = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]]
+            return closest_row.iloc[0]
+
+        # Find the closest datetimes for each date in reach_df
+        closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
+
+        # Combine the original time_str with the closest data from node_df
+        extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u']
+
+        final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[node_fields]], axis=1)
+        final_df[extra_fields] = reach_df[extra_fields]
+
+        if final_df.shape[0] != reach_df.shape[0]:
+            print('miss shapes')
+            print(reach_df.shape)
+            print(final_df.shape)
+            print(final_df['time_str'])
+        # return 'foo'
+
+        # node_q wrong datatype
+        cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
+        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(-999)
+
+
+
+        node_df_list.append(final_df)
+
+
+
+
+    return reach_df, node_df_list
 
 def prep_output(reach_df, node_df_list):
     output_data = {'reach':{}, 'node':{}}
@@ -216,8 +278,7 @@ def prep_output(reach_df, node_df_list):
     for header in node_df_list[0].columns:
         output_data['node'][header] = final_arrays[cnt]
         cnt += 1 
-    # print(output_data['node']['time'])
-    # print(output_data['node']['time_str'])
+
     return output_data
             
 def get_reachids(reachjson,index_to_run):
@@ -257,7 +318,7 @@ def load_sword(reachid, sworddir, sword_version):
         '5':'oc',
         '6':'sa'
     }
-    sword_path = os.path.join(sworddir, cont_map[sword_version] + f'_sword_v{sword_version}.nc')
+    sword_path = os.path.join(sworddir, cont_map[str(reachid)[0]] + f'_sword_v{sword_version}.nc')
     sword = netCDF4.Dataset(sword_path)
 
     return sword
@@ -275,12 +336,13 @@ def main():
     outdir = args.outdir
     sworddir = args.sworddir
     time = args.time
+    swordversion = args.swordversion
 
     # pull sword and find all reach data
     reachid = get_reachids(reachjson,index_to_run)
 
     # map reach id to sword and load sword
-    sword = load_sword(reachid, sworddir)
+    sword = load_sword(reachid, sworddir, swordversion)
 
     # find node ids for reach, also close sos
     nodeids = get_reach_nodes(sword, reachid)

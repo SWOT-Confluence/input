@@ -7,6 +7,12 @@ FLOAT_FILL = -999999999999
 INT_FILL = -999
 STR_FILL = "no data"
 
+def convert_to_int_with_fill(arr, fill_value):
+    # Check for NaNs and replace with fill value
+    arr[np.isnan(arr)] = fill_value
+    # Convert to integers
+    return arr.astype(int)
+
 # HCWrite.write_data(swot_id=reachid, node_ids=nodeids, reach_df = reach_df, node_df_list = node_df_list, output_dir = '.')
 def write_data(swot_id, node_ids, data, output_dir):
     """Writes node and reach level SWOT data to NetCDF format.
