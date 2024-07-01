@@ -22,6 +22,9 @@ import netCDF4
 import os
 import numpy as np
 from io import StringIO
+import sys
+import time
+import random
 
 # Local imports
 import input.write.HydrocronWrite as HCWrite
@@ -166,7 +169,7 @@ def get_reach_nodes(rootgrp, reach_id):
     return list(set(all_nodes))
 
 
-def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
+def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
     baseurl= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
     
     fieldstrs=''
@@ -178,12 +181,16 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
         
     dataformat='csv' #switch this to csv to avoid getting all the data
 
-    url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + time + 'output=' + dataformat + '&fields=' + fieldstrs
+    url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + date_range + 'output=' + dataformat + '&fields=' + fieldstrs
     # df = pd.Dataframe(columns = fields)
     retry_cnt = 0
     while retry_cnt < 10:
         # pull data from HydroChron into res variable
-        data = requests.get(url).json()
+        try:
+            data = requests.get(url).json()
+        except:
+            retry_cnt += 1
+            continue
         # print(res)
 
         # load data into a dictionary
@@ -194,26 +201,35 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
         if 'error' in data.keys():
             retry_cnt += 1
             print('Error pulling data:',data['error'])
+            time.sleep(random.uniform(1, 5))
         elif 'status' in data.keys():
             if data['status']=='200 OK':
                 # loads data into df
                 df = data['results']['csv']
                 df = pd.read_csv(StringIO(df))
+                print('Successfully pulled data and put in dictionary')
                 retry_cnt = 999
                 # print(df)
-                print('Successfully pulled data and put in dictionary')
+
             else:
                 retry_cnt += 1
                 print(data)
                 print('Something went wrong: retrying')
+                time.sleep(random.uniform(1, 5))
         else:
             retry_cnt += 1
             print(data)
             print('Something went wrong: data not pulled or not stashed in dictionary correctly')
+            time.sleep(random.uniform(1, 5))
 
     if retry_cnt != 999:
-        # df = pd.Dataframe(columns = fields)
-        raise ValueError('Failed to pull node_df')
+        print('Failed to pull ', reach_or_node, id_of_interest)
+        if reach_or_node == "Reach":
+            print("Failed to pull reach... exiting...")
+            sys.exit(0)
+
+        # df = pd.DataFrame(columns = fields)
+        # raise ValueError('Failed to pull node_df')
 
 
 
@@ -240,11 +256,11 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
     #     df.loc[len(df.index)]=rowdata
     return df
 
-def process_reach_via_hydrocron(reachid, nodeids, time):
+def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
 
 
-    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, time)
+    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range)
     # reach_df['time_str_parse'] = reach_df['time_str'].str[:10]
     reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
     reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
@@ -258,7 +274,7 @@ def process_reach_via_hydrocron(reachid, nodeids, time):
 
     node_df_list = []
     for nodeid in nodeids:
-        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, time)
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range)
 
         # filter by reach observed days and average duplicate indexes
         # node_df['time_str_parse'] = node_df['time_str'].str[:10]
@@ -408,7 +424,7 @@ def main():
     reachjson = args.reachesjson
     outdir = args.outdir
     sworddir = args.sworddir
-    time = args.time
+    date_range = args.time
     swordversion = args.swordversion
 
     # pull sword and find all reach data
@@ -421,7 +437,7 @@ def main():
     nodeids = get_reach_nodes(sword, reachid)
 
     # Pull observation data using hydrocron
-    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, time)
+    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, date_range)
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
