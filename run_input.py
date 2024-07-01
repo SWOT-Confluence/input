@@ -21,9 +21,24 @@ import glob
 import netCDF4
 import os
 import numpy as np
+from io import StringIO
 
 # Local imports
 import input.write.HydrocronWrite as HCWrite
+
+
+# global variables
+REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
+    'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
+    'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
+
+
+# NODE_FIELDS = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+#             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
+#       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
+NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+            'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
+    'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -89,7 +104,34 @@ def get_exe_data(index, json_file):
 
 
 
+# Function to find the closest datetime
+def find_closest_date(row, df):
+    date = row['date']
+    out_df = pd.Series([None] * len(df.columns))
+    out_df.columns = df.columns
 
+    if NODE_FIELDS[0] not in list(df.columns):
+        print('here is df')
+        print(df)
+        raise
+
+    if pd.isna(date):
+        print('returning empty, date')
+        return out_df
+
+    df_filtered = df[df['date'] == date]
+
+    if df_filtered.empty:
+        return out_df
+    
+    
+    out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
+    # print('returnning sucess')
+    print(out_df[NODE_FIELDS])
+    # print(out_df['foo'])
+
+
+    return out_df
 
 
 
@@ -134,62 +176,78 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, time):
             field = ','+field
         fieldstrs+=field
         
-    dataformat='geojson' #switch this to csv to avoid getting all the data
+    dataformat='csv' #switch this to csv to avoid getting all the data
 
     url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + time + 'output=' + dataformat + '&fields=' + fieldstrs
+    # df = pd.Dataframe(columns = fields)
+    retry_cnt = 0
+    while retry_cnt < 10:
+        # pull data from HydroChron into res variable
+        data = requests.get(url).json()
+        # print(res)
+
+        # load data into a dictionary
+        # data=json.loads(res.text)
 
 
-    # pull data from HydroChron into res variable
-    res = requests.get(url)
-
-    # load data into a dictionary
-    data=json.loads(res.text)
-
-    # check that it worked
-    if 'error' in data.keys():
-        print('Error pulling data:',data['error'])
-    elif data['status']=='200 OK':
-        print('Successfully pulled data and put in dictionary')
-    else:
-        print('Something went wrong: data not pulled or not stashed in dictionary correctly')
-
-    
-    df=pd.DataFrame(columns=fields)
-
-    for feature in data['results']['geojson']['features']:    
-        #rowdata=[feature['properties']['cycle_id'],feature['properties']['pass_id'],feature['properties']['time_str'],feature['properties']['wse'],feature['properties']['reach_q']]    
-        
-        data_els=feature['properties']
-        
-        rowdata=[]
-        for field in fields:
-            if field == 'slope':
-                datafield=float(data_els[field])
+        # check that it worked
+        if 'error' in data.keys():
+            retry_cnt += 1
+            print('Error pulling data:',data['error'])
+        elif 'status' in data.keys():
+            if data['status']=='200 OK':
+                # loads data into df
+                df = data['results']['csv']
+                df = pd.read_csv(StringIO(df))
+                retry_cnt = 999
+                # print(df)
+                print('Successfully pulled data and put in dictionary')
             else:
-                datafield=data_els[field]
-                
-            rowdata.append(datafield)
+                retry_cnt += 1
+                print(data)
+                print('Something went wrong: retrying')
+        else:
+            retry_cnt += 1
+            print(data)
+            print('Something went wrong: data not pulled or not stashed in dictionary correctly')
+
+    if retry_cnt != 999:
+        # df = pd.Dataframe(columns = fields)
+        raise ValueError('Failed to pull node_df')
+
+
+
+
+
+
+    # OLD PARSING FOR GEOJSON
+    # df=pd.DataFrame(columns=fields)
+
+    # for feature in data['results']['geojson']['features']:    
+    #     #rowdata=[feature['properties']['cycle_id'],feature['properties']['pass_id'],feature['properties']['time_str'],feature['properties']['wse'],feature['properties']['reach_q']]    
         
-        df.loc[len(df.index)]=rowdata
+    #     data_els=feature['properties']
+        
+    #     rowdata=[]
+    #     for field in fields:
+    #         if field == 'slope':
+    #             datafield=float(data_els[field])
+    #         else:
+    #             datafield=data_els[field]
+                
+    #         rowdata.append(datafield)
+        
+    #     df.loc[len(df.index)]=rowdata
     return df
 
 def process_reach_via_hydrocron(reachid, nodeids, time):
 
-    reach_fields = ['pass_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
-        'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
-        'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
 
 
-    # node_fields = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-    #             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
-    #       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
-    node_fields = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-                'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
-        'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
-
-    reach_df = pull_via_hydrocron('Reach', reachid, reach_fields, time)
+    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, time)
     # reach_df['time_str_parse'] = reach_df['time_str'].str[:10]
     reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+    reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
     # right_df['time_dt'] = pd.to_datetime(right_df['time_str'])
     # print('reach parse')
     # print(reach_df['time_str_parse'])
@@ -200,7 +258,7 @@ def process_reach_via_hydrocron(reachid, nodeids, time):
 
     node_df_list = []
     for nodeid in nodeids:
-        node_df = pull_via_hydrocron('Node', nodeid, node_fields, time)
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, time)
 
         # filter by reach observed days and average duplicate indexes
         # node_df['time_str_parse'] = node_df['time_str'].str[:10]
@@ -219,24 +277,39 @@ def process_reach_via_hydrocron(reachid, nodeids, time):
         reach_df['date'] = reach_df['datetime'].dt.date
         node_df['date'] = node_df['datetime'].dt.date
 
-        # Function to find the closest datetime
-        def find_closest_date(row, df):
-            date = row['date']
-            if pd.isna(date):
-                return pd.Series([None] * len(node_df.columns))
-            df_filtered = df[df['date'] == date]
-            if df_filtered.empty:
-                return pd.Series([None] * len(node_df.columns))
-            closest_row = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]]
-            return closest_row.iloc[0]
+
 
         # Find the closest datetimes for each date in reach_df
         closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
+        # raise
+
+        # Filtering columns: Keep only columns whose names are not integers (left over from the concat)
+        closest_data = closest_data.loc[:, ~closest_data.columns.to_series().apply(lambda x: isinstance(x, int))]
+        if len(list(closest_data.columns)) == 0:
+            print('it was zero')
+            print(closest_data)
+            closest_data = pd.DataFrame(columns = list(node_df.columns))
+            # raise
 
         # Combine the original time_str with the closest data from node_df
-        extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u']
-
-        final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[node_fields]], axis=1)
+        extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
+        # print(reach_df[NODE_FIELDS])
+        # print(pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[NODE_FIELDS]], axis=1))
+        
+        try:
+            # final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[NODE_FIELDS]], axis=1)
+            print('pre')
+            print(closest_data)
+            print(closest_data.reset_index(drop=False))
+            print('no pree')
+            final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=False)[NODE_FIELDS]], axis=1)
+        except:
+            # print(closest_data)
+            print(reach_df)
+            print(list(closest_data))
+            print(closest_data.reset_index(drop=True))
+            print('theres the error')
+            raise
         final_df[extra_fields] = reach_df[extra_fields]
 
         if final_df.shape[0] != reach_df.shape[0]:
