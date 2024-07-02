@@ -190,6 +190,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
             data = requests.get(url).json()
         except:
             retry_cnt += 1
+            time.sleep(random.uniform(1, 30))
             continue
         # print(res)
 
@@ -201,7 +202,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
         if 'error' in data.keys():
             retry_cnt += 1
             print('Error pulling data:',data['error'])
-            time.sleep(random.uniform(1, 5))
+            time.sleep(random.uniform(1, 30))
         elif 'status' in data.keys():
             if data['status']=='200 OK':
                 # loads data into df
@@ -215,12 +216,12 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
                 retry_cnt += 1
                 print(data)
                 print('Something went wrong: retrying')
-                time.sleep(random.uniform(1, 5))
+                time.sleep(random.uniform(1, 30))
         else:
             retry_cnt += 1
             print(data)
             print('Something went wrong: data not pulled or not stashed in dictionary correctly')
-            time.sleep(random.uniform(1, 5))
+            time.sleep(random.uniform(1, 30))
 
     if retry_cnt != 999:
         print('Failed to pull ', reach_or_node, id_of_interest)
