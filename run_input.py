@@ -113,11 +113,6 @@ def find_closest_date(row, df):
     out_df = pd.Series([None] * len(df.columns))
     out_df.columns = df.columns
 
-    if NODE_FIELDS[0] not in list(df.columns):
-        print('here is df')
-        print(df)
-        raise
-
     if pd.isna(date):
         print('returning empty, date')
         return out_df
@@ -127,12 +122,7 @@ def find_closest_date(row, df):
     if df_filtered.empty:
         return out_df
     
-    
     out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
-    # print('returnning sucess')
-    print(out_df[NODE_FIELDS])
-    # print(out_df['foo'])
-
 
     return out_df
 
@@ -140,17 +130,7 @@ def find_closest_date(row, df):
 
 def get_reach_nodes(rootgrp, reach_id):
 
-
-    # add mapping
-
     all_nodes = []
-
-    # files = glob.glob(os.path.join(data_dir, '*'))
-    # print(f'Searching across {len(files)} continents for nodes...')
-
-    # for i in files:
-
-        # rootgrp = netCDF4.Dataset(i, "r", format="NETCDF4")
 
     node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
 
@@ -165,7 +145,6 @@ def get_reach_nodes(rootgrp, reach_id):
 
     rootgrp.close()
 
-    print(f'Found {len(set(all_nodes))} nodes...')
     return list(set(all_nodes))
 
 
@@ -192,11 +171,6 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
             retry_cnt += 1
             time.sleep(random.uniform(1, 30))
             continue
-        # print(res)
-
-        # load data into a dictionary
-        # data=json.loads(res.text)
-
 
         # check that it worked
         if 'error' in data.keys():
@@ -210,16 +184,13 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
                 df = pd.read_csv(StringIO(df))
                 print('Successfully pulled data and put in dictionary')
                 retry_cnt = 999
-                # print(df)
 
             else:
                 retry_cnt += 1
-                print(data)
                 print('Something went wrong: retrying')
                 time.sleep(random.uniform(1, 30))
         else:
             retry_cnt += 1
-            print(data)
             print('Something went wrong: data not pulled or not stashed in dictionary correctly')
             time.sleep(random.uniform(1, 30))
 
@@ -262,16 +233,8 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
 
     reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range)
-    # reach_df['time_str_parse'] = reach_df['time_str'].str[:10]
     reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
     reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
-    # right_df['time_dt'] = pd.to_datetime(right_df['time_str'])
-    # print('reach parse')
-    # print(reach_df['time_str_parse'])
-    # print(reach_df.shape, 'reach_shape')
-
-
-
 
     node_df_list = []
     for nodeid in nodeids:
@@ -303,49 +266,23 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
         # Filtering columns: Keep only columns whose names are not integers (left over from the concat)
         closest_data = closest_data.loc[:, ~closest_data.columns.to_series().apply(lambda x: isinstance(x, int))]
         if len(list(closest_data.columns)) == 0:
-            print('it was zero')
-            print(closest_data)
             closest_data = pd.DataFrame(columns = list(node_df.columns))
             # raise
 
         # Combine the original time_str with the closest data from node_df
         extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
-        # print(reach_df[NODE_FIELDS])
-        # print(pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[NODE_FIELDS]], axis=1))
         
         try:
-            # final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=True)[NODE_FIELDS]], axis=1)
-            print('pre')
-            print(closest_data)
-            print(closest_data.reset_index(drop=False))
-            print('no pree')
             final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=False)[NODE_FIELDS]], axis=1)
         except:
-            # print(closest_data)
-            print(reach_df)
-            print(list(closest_data))
-            print(closest_data.reset_index(drop=True))
-            print('theres the error')
             raise
         final_df[extra_fields] = reach_df[extra_fields]
-
-        if final_df.shape[0] != reach_df.shape[0]:
-            print('miss shapes')
-            print(reach_df.shape)
-            print(final_df.shape)
-            print(final_df['time_str'])
-        # return 'foo'
 
         # node_q wrong datatype
         cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
         final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(-999)
 
-
-
         node_df_list.append(final_df)
-
-
-
 
     return reach_df, node_df_list
 
@@ -353,15 +290,7 @@ def prep_output(reach_df, node_df_list):
     output_data = {'reach':{}, 'node':{}}
     for header in reach_df.columns:
         output_data['reach'][header] = reach_df[header].values
-    cnt = 0
-    # for node_df in node_df_list:
-    #     for header in list(node_df.columns()):
-    
-    # Stack the DataFrames along a new axis to create a 3D numpy array
-    # print('here is one node', node_df_list[0])
-    # print('here is node two', node_df_list[1])
     stacked_array = np.stack([df.values for df in node_df_list], axis=-1)
-
     # Transpose the array to get the desired shape (len(df) x num_dfs)
     final_arrays = [stacked_array[:, i, :].T for i in range(stacked_array.shape[1])]
     cnt = 0
