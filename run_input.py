@@ -14,24 +14,34 @@ DEFAULT json file is "reach_node.json" and runs in "river" context.
 import argparse
 from datetime import datetime
 import json
-import os
-from pathlib import Path
-import sys
-
-# Third-party imports
-import boto3
-import botocore
+import pandas as pd
+import requests
+import numpy as np
 import glob
-from random import randint
-from time import sleep
+import netCDF4
+import os
+import numpy as np
+from io import StringIO
+import sys
+import time
+import random
 
 # Local imports
-from input.Input import Input
-from input.extract.ExtractLake import ExtractLake
-from input.extract.ExtractRiver import ExtractRiver
-from input.extract.exceptions import ReachNodeMismatch
-from input.write.WriteLake import WriteLake
-from input.write.WriteRiver import WriteRiver
+import input.write.HydrocronWrite as HCWrite
+
+
+# global variables
+REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
+    'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
+    'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
+
+
+# NODE_FIELDS = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+#             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
+#       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
+NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
+            'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
+    'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -41,92 +51,40 @@ def create_args():
                             "--index",
                             type=int,
                             help="Index to specify input data to execute on, value of -235 indicates AWS selection")
+    
     arg_parser.add_argument("-r",
-                            "--rnjson",
+                            "--reachesjson",
                             type=str,
-                            help="Path to the reach node json file or lakes json file",
-                            default="reach_node.json")
-    arg_parser.add_argument("-p",
-                            "--cpjson",
+                            help="Path to the reaches.json",
+                            default="/mnt/data/reaches_of_interest.json")
+
+    arg_parser.add_argument("-o",
+                            "--outdir",
                             type=str,
-                            help="Path to the cycle pass json file",
-                            default="cycle_pass.json")
+                            help="Directory to output data to",
+                            default="/mnt/data/swot/")
+    
     arg_parser.add_argument("-s",
-                            "--shpjson",
-                            type=str,
-                            help="Path to the shapefile list json file",
-                            default="s3_list_local.json")
-    arg_parser.add_argument("-e",
-                            "--rshpjson",
-                            type=str,
-                            help="Path to the reach S3 list json file",
-                            default="s3_reach.json")
-    arg_parser.add_argument("-c",
-                            "--context",
-                            type=str,
-                            choices=["river", "lake"],
-                            help="Context to retrieve data for: 'river' or 'lake'",
-                            default="river")
-    arg_parser.add_argument("-d",
-                            "--directory",
-                            type=str,
-                            help="Directory to output data to")
-    arg_parser.add_argument("-l",
-                            "--local",
-                            action='store_true',
-                            help="Indicates local run of program")
-    arg_parser.add_argument("-f",
-                            "--shapefiledir",
-                            type=str,
-                            help="Directory of local shapefiles")
-    arg_parser.add_argument("-n",
-                            "--chunk_number",
-                            type=int,
-                            help="Number indicating what chunk to run on ")
+                        "--sworddir",
+                        type=str,
+                        help="Directory containing SWORD files",
+                        default="/mnt/data/sword/")
+
+    arg_parser.add_argument("-t",
+                    "--time",
+                    type=str,
+                    help="Time parameter to search",
+                    default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
+    
+    arg_parser.add_argument("-v",
+                "--swordversion",
+                type=str,
+                help="Version of sword we are using",
+                default="16")
+
+
     return arg_parser
 
-# def get_creds():
-#     """Return AWS S3 credentials to access S3 shapefiles."""
-    
-#     ssm_client = boto3.client('ssm', region_name="us-west-2")
-#     creds = {}
-#     try:
-#         creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
-#         creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-#         creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-#     except botocore.exceptions.ClientError as e:
-#         raise e
-#     else:
-#         return creds
-
-def get_creds():
-    """Return AWS S3 credentials to access S3 shapefiles."""
-    
-    ssm_client = boto3.client('ssm', region_name="us-west-2")
-    creds = {}
-    retry_count = 10
-    while retry_count>0:
-        try:
-            creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
-            creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-            retry_count = -999
-        except:
-            print('Error pulling credentials, retrying:', retry_count)
-            retry_count-=1
-            sleep(randint(1,300))
-    if retry_count == 0:
-        try:
-            print('Final Try...')
-            creds["access_key"] = ssm_client.get_parameter(Name="s3_creds_key", WithDecryption=True)["Parameter"]["Value"]
-            creds["secret"] = ssm_client.get_parameter(Name="s3_creds_secret", WithDecryption=True)["Parameter"]["Value"]
-            creds["token"] = ssm_client.get_parameter(Name="s3_creds_token", WithDecryption=True)["Parameter"]["Value"]
-            retry_count = -999
-        except botocore.exceptions.ClientError as e:
-            raise e
-
-    else:
-        return creds
 def get_exe_data(index, json_file):
         """Retrun dictionary of data required to execution input operations.
         
@@ -146,114 +104,280 @@ def get_exe_data(index, json_file):
             data = json.load(json_file)[index]
         return data
 
-def select_strategies(context, exe_data, shapefiles, cycle_pass, output_dir, creds=None):
-    """Define and set strategies to execute Input operations.
+
+
+
+# Function to find the closest datetime
+def find_closest_date(row, df):
+    date = row['date']
+    out_df = pd.Series([None] * len(df.columns))
+    out_df.columns = df.columns
+
+    if pd.isna(date):
+        print('returning empty, date')
+        return out_df
+
+    df_filtered = df[df['date'] == date]
+
+    if df_filtered.empty:
+        return out_df
     
-    Program exits if context is not set.
+    out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
+
+    return out_df
+
+
+
+def get_reach_nodes(rootgrp, reach_id):
+
+    all_nodes = []
+
+    node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
+
+    if len(node_ids_indexes[0])!=0:
+        for y in node_ids_indexes[0]:
+            node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
+            all_nodes.append(node_id)
+
+
+
+        # all_nodes.extend(node_ids[0].tolist())
+
+    rootgrp.close()
+
+    return list(set(all_nodes))
+
+
+def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
+    baseurl= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
+    
+    fieldstrs=''
+
+    for field in fields:
+        if fieldstrs:
+            field = ','+field
+        fieldstrs+=field
+        
+    dataformat='csv' #switch this to csv to avoid getting all the data
+
+    url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + date_range + 'output=' + dataformat + '&fields=' + fieldstrs
+    # df = pd.Dataframe(columns = fields)
+    retry_cnt = 0
+    while retry_cnt < 10:
+        # pull data from HydroChron into res variable
+        try:
+            data = requests.get(url).json()
+        except:
+            retry_cnt += 1
+            time.sleep(random.uniform(1, 30))
+            continue
+
+        # check that it worked
+        if 'error' in data.keys():
+            retry_cnt += 1
+            print('Error pulling data:',data['error'])
+            time.sleep(random.uniform(1, 30))
+        elif 'status' in data.keys():
+            if data['status']=='200 OK':
+                # loads data into df
+                df = data['results']['csv']
+                df = pd.read_csv(StringIO(df))
+                print('Successfully pulled data and put in dictionary')
+                retry_cnt = 999
+
+            else:
+                retry_cnt += 1
+                print('Something went wrong: retrying')
+                time.sleep(random.uniform(1, 30))
+        else:
+            retry_cnt += 1
+            print('Something went wrong: data not pulled or not stashed in dictionary correctly')
+            time.sleep(random.uniform(1, 30))
+
+    if retry_cnt != 999:
+        print('Failed to pull ', reach_or_node, id_of_interest)
+        if reach_or_node == "Reach":
+            print("Failed to pull reach... exiting...")
+            sys.exit(0)
+
+        # df = pd.DataFrame(columns = fields)
+        # raise ValueError('Failed to pull node_df')
+
+
+
+
+
+
+    # OLD PARSING FOR GEOJSON
+    # df=pd.DataFrame(columns=fields)
+
+    # for feature in data['results']['geojson']['features']:    
+    #     #rowdata=[feature['properties']['cycle_id'],feature['properties']['pass_id'],feature['properties']['time_str'],feature['properties']['wse'],feature['properties']['reach_q']]    
+        
+    #     data_els=feature['properties']
+        
+    #     rowdata=[]
+    #     for field in fields:
+    #         if field == 'slope':
+    #             datafield=float(data_els[field])
+    #         else:
+    #             datafield=data_els[field]
+                
+    #         rowdata.append(datafield)
+        
+    #     df.loc[len(df.index)]=rowdata
+    return df
+
+def process_reach_via_hydrocron(reachid, nodeids, date_range):
+
+
+
+    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range)
+    reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+    reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
+
+    node_df_list = []
+    for nodeid in nodeids:
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range)
+
+        # filter by reach observed days and average duplicate indexes
+        # node_df['time_str_parse'] = node_df['time_str'].str[:10]
+        # node_df = node_df.reset_index()
+        # node_df = node_df.rename(columns=lambda x: x + '_right' if x != 'time_str_parse' else x)
+        # merged = pd.merge(reach_df, node_df,on='time_str_parse', how='left')
+        # result_df = merged[['time_str_parse'] + [col for col in node_df.columns if col != 'time_str_parse']]
+        # result_df = result_df.rename(columns=lambda x: x.replace('_right', '') if x != 'time_str_parse' else x)
+        # result_df = result_df.groupby('time_str_parse').mean()
+
+        # Convert datetime strings to datetime objects
+        # reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+        node_df['datetime'] = pd.to_datetime(node_df['time_str'], errors='coerce')
+
+        # Extract dates
+        reach_df['date'] = reach_df['datetime'].dt.date
+        node_df['date'] = node_df['datetime'].dt.date
+
+
+
+        # Find the closest datetimes for each date in reach_df
+        closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
+        # raise
+
+        # Filtering columns: Keep only columns whose names are not integers (left over from the concat)
+        closest_data = closest_data.loc[:, ~closest_data.columns.to_series().apply(lambda x: isinstance(x, int))]
+        if len(list(closest_data.columns)) == 0:
+            closest_data = pd.DataFrame(columns = list(node_df.columns))
+            # raise
+
+        # Combine the original time_str with the closest data from node_df
+        extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
+        
+        try:
+            final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=False)[NODE_FIELDS]], axis=1)
+        except:
+            raise
+        final_df[extra_fields] = reach_df[extra_fields]
+
+        # node_q wrong datatype
+        cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
+        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(-999)
+
+        node_df_list.append(final_df)
+
+    return reach_df, node_df_list
+
+def prep_output(reach_df, node_df_list):
+    output_data = {'reach':{}, 'node':{}}
+    for header in reach_df.columns:
+        output_data['reach'][header] = reach_df[header].values
+    stacked_array = np.stack([df.values for df in node_df_list], axis=-1)
+    # Transpose the array to get the desired shape (len(df) x num_dfs)
+    final_arrays = [stacked_array[:, i, :].T for i in range(stacked_array.shape[1])]
+    cnt = 0
+    for header in node_df_list[0].columns:
+        output_data['node'][header] = final_arrays[cnt]
+        cnt += 1 
+
+    return output_data
+            
+def get_reachids(reachjson,index_to_run):
+    """Extract and return a list of reach identifiers from json file.
     
     Parameters
     ----------
-    context: str
-        string indicator of data type
-    shapefiles: list
-        list of SWOT shapefiles
-    reach-data: list
-        list of data to indicate what to execute on
-    cycle_pass: dict
-        dict of cycle pass json data
-    output_dir: Path
-        Path to output directory
-    creds: dict
-        dict of AWS S3 credentials
+    reachjson : str
+        Path to the file that contains the list of reaches to process
+    
         
     Returns
     -------
-    Input object with appropriate strategies selected
+    list
+        List of reaches identifiers
     """
-    
-    if context == "river":
-        er = ExtractRiver(exe_data[0], shapefiles, cycle_pass, output_dir, creds, exe_data[1])
-        ew = WriteRiver(exe_data[0], output_dir, exe_data[1])
-        input = Input(er, ew)
-    elif context == "lake": 
-        el = ExtractLake(exe_data, shapefiles, cycle_pass, output_dir, creds)
-        wl = WriteLake(exe_data, output_dir)
-        input = Input(el, wl)
+
+    if index_to_run == -235:
+        index=int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
     else:
-        print("Incorrect context selected to execute input operations.")
-        sys.exit(1)
-    return input
+        index=index_to_run
+  
+    with open(reachjson) as jsonfile:
+        data = json.load(jsonfile)
+
+    return data[index]
+
+def load_sword(reachid, sworddir, sword_version):
+    cont_map = {
+        '1':'af',
+        '4':'as',
+        '3':'as',
+        '2':'eu',
+        '7':'na',
+        '8':'na',
+        '9':'na',
+        '5':'oc',
+        '6':'sa'
+    }
+    sword_path = os.path.join(sworddir, cont_map[str(reachid)[0]] + f'_sword_v{sword_version}.nc')
+    sword = netCDF4.Dataset(sword_path)
+
+    return sword
 
 def main():
     """Main method to execute Input class methods."""
-    
     start = datetime.now()
 
     # Command line arguments
     arg_parser = create_args()
     args = arg_parser.parse_args()
-    index = args.index
-        
-    # Get input data to run on
-    if args.chunk_number is not None:
-        # run_jsons = glob.glob(args.rnjson.replace('.json', '*'))
-        run_json = args.rnjson.replace('.json', f'_{args.chunk_number}.json')
-    else:
-        run_json = args.rnjson
 
-    index = int(index) if index != -235 else int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
+    index_to_run = args.index
+    reachjson = args.reachesjson
+    outdir = args.outdir
+    sworddir = args.sworddir
+    date_range = args.time
+    swordversion = args.swordversion
 
-    exe_data = get_exe_data(index, args.rnjson)
-    print(f"Running on reach: {exe_data[0]} (index number {index}).")
+    # pull sword and find all reach data
+    reachid = get_reachids(reachjson,index_to_run)
 
-    
-    # Get cycle pass data
-    with open(args.cpjson) as jf:
-        cycle_pass = json.load(jf)
-    
-    # Get shapefiles
+    # map reach id to sword and load sword
+    sword = load_sword(reachid, sworddir, swordversion)
 
-    '''
-    Using the shapefile dir argument you can specify a group of shapefiles you would like to run input for
-    without the use of a local S3 list file.
+    # find node ids for reach, also close sos
+    nodeids = get_reach_nodes(sword, reachid)
 
-    This is helpful if you would like to run on all the shapefiles present, without subsetting.
+    # Pull observation data using hydrocron
+    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, date_range)
 
-    The S3 json is needed to subset, or run in AWS.
-    '''
-    
-    with open(args.rshpjson) as jf:
-        shapefiles = json.load(jf)[exe_data[0]]
-        
-    # Select strategy to run based on context
-    if not args.local:
-        print("Obtaining S3 credentials.")
-        try:
-            creds = get_creds()
-        except botocore.exceptions.ClientError as error:
-            print("Error trying to retreive data from parameter store.")
-            print(error)
-            print("Exiting program...")
-            sys.exit(1)
-        input = select_strategies(args.context, exe_data, shapefiles, \
-            cycle_pass, Path(args.directory), creds)
-    else:
-        input = select_strategies(args.context, exe_data, shapefiles, \
-            cycle_pass, Path(args.directory))
-    
-    # Execute strategies to retrieve SWOT data and save as a NETCDF
-    try:    
-        print("Executing input strategies.")
-        input.execute_strategies()
-        print(f"File written for: {input.write_strategy.swot_id}.")
-    except ReachNodeMismatch:
-        print("The observation times for reaches did not match the observation " \
-            + "times for nodes.\nThis indicates an error and you should " \
-            + "compare the cycle/passes for reaches and nodes.\nExiting program...")
-        sys.exit(1)
+    # parse hydrocron returns
+    output_data = prep_output(reach_df, node_df_list)
+
+    # write out parsed data to timeseries file
+    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data, output_dir = outdir)
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")
+
 
 if __name__ == "__main__":
     main()
