@@ -38,16 +38,13 @@ class HWS_IO:
         swot_dataset = self.swot_dataset
 
         #obs data is an empty dict
-        # print('this is what we are working with')
-        # print(swot_dataset)
         self.ObsData["nR"]=1
         self.ObsData["xkm"]=nan
         self.ObsData["L"]=nan
         self.ObsData["nt"]= self.nt
-        print('unmasked time')
-        print(swot_dataset["reach"]["time"][:])
-        # ts = swot_dataset["reach"]["time"][:].filled(0)
-        ts = swot_dataset["reach"]["time"][:]
+
+
+        ts = swot_dataset["time"].values
         epoch = datetime.datetime(2000,1,1,0,0,0)
         tall = []
         for t in ts:
@@ -63,6 +60,7 @@ class HWS_IO:
         # tall = [ epoch + datetime.timedelta(seconds=t) if t > 0 else 0 for t in ts]
 
         self.ObsData["t"]=array(tall)
+        print(self.ObsData["t"], 'test-')
         print('test1', diff(self.ObsData["t"]).T*86400)
         print('test2', ones((1,self.ObsData["nR"])))
         print('test3',self.ObsData["nR"]*(self.ObsData["nt"]-1))
@@ -80,9 +78,9 @@ class HWS_IO:
             # self.ObsData["h"][i,:]=swot_dataset["reach/wse"][0:self.ObsData["nt"]].filled(nan)
             # self.ObsData["w"][i,:]=swot_dataset["reach/width"][0:self.ObsData["nt"]].filled(nan)
             # self.ObsData["S"][i,:]=swot_dataset["reach/slope2"][0:self.ObsData["nt"]].filled(nan)
-            self.ObsData["h"][i,:]=swot_dataset["reach"]["wse"][0:self.ObsData["nt"]]
-            self.ObsData["w"][i,:]=swot_dataset["reach"]["width"][0:self.ObsData["nt"]]
-            self.ObsData["S"][i,:]=swot_dataset["reach"]["slope2"][0:self.ObsData["nt"]]
+            self.ObsData["h"][i,:]=swot_dataset.iloc[0:self.ObsData["nt"]]["wse"]
+            self.ObsData["w"][i,:]=swot_dataset.iloc[0:self.ObsData["nt"]]["width"]
+            self.ObsData["S"][i,:]=swot_dataset.iloc[0:self.ObsData["nt"]]["slope2"]
 
         self.ObsData["sigh"]=0.1
         self.ObsData["sigw"]=10.0

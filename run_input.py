@@ -28,6 +28,9 @@ import random
 
 # Local imports
 import input.write.HydrocronWrite as HCWrite
+from input.extract.CalculateHWS import CalculateHWS
+from input.extract.DomainHWS import DomainHWS
+from input.extract.HWS_IO import HWS_IO
 
 
 # global variables
@@ -42,6 +45,9 @@ REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice
 NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
             'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
     'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
+
+
+FLOAT_FILL = -999999999999
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -123,6 +129,7 @@ def find_closest_date(row, df):
         return out_df
     
     out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
+    print('return successfull')
 
     return out_df
 
@@ -236,6 +243,15 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
     reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
     reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
 
+    if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
+        print('Calculating HWS...')
+        IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
+        D=DomainHWS(IO.ObsData)
+        hws_obj = CalculateHWS(D, IO.ObsData)
+        if len(hws_obj.dAall) == 1:
+            hws_obj.dAall = hws_obj.dAall[0]
+        reach_df["d_x_area"] = hws_obj.dAall
+
     node_df_list = []
     for nodeid in nodeids:
         node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range)
@@ -280,9 +296,12 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
         # node_q wrong datatype
         cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
-        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(-999)
+        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(FLOAT_FILL)
 
         node_df_list.append(final_df)
+
+                # Calculate d_x_area
+
 
     return reach_df, node_df_list
 
@@ -337,6 +356,8 @@ def load_sword(reachid, sworddir, sword_version):
         '5':'oc',
         '6':'sa'
     }
+
+    print(reachid)
     sword_path = os.path.join(sworddir, cont_map[str(reachid)[0]] + f'_sword_v{sword_version}.nc')
     sword = netCDF4.Dataset(sword_path)
 
@@ -358,7 +379,7 @@ def main():
     swordversion = args.swordversion
 
     # pull sword and find all reach data
-    reachid = get_reachids(reachjson,index_to_run)
+    reachid = get_reachids(reachjson,index_to_run)['reach_id']
 
     # map reach id to sword and load sword
     sword = load_sword(reachid, sworddir, swordversion)
