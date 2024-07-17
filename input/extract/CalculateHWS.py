@@ -61,7 +61,7 @@ class CalculateHWS:
         else:
             self.sigw=σW
         self.sigS=RiverData["sigS"]
-        self.D=D    
+        self.D=D   
         self.CalcAreaFitOpt=CalcAreaFitOpt
         self.ConstrainHWSwitch=ConstrainHWSwitch
         self.Verbose=Verbose
@@ -72,6 +72,7 @@ class CalculateHWS:
         self.hall=self.h
         self.wall=self.w
         self.dAall=empty( (self.D.nR,self.D.nt)   )
+        print(self.dAll)
 
         if ConstrainHWSwitch and CalcAreaFitOpt== 0:
             print('If you want to use Fluvial Hypsometry constraint, you also need to do CalcAreaFitOpt > 0')
