@@ -174,7 +174,8 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
         # pull data from HydroChron into res variable
         try:
             data = requests.get(url).json()
-        except:
+        except Exception as e:
+            print('Error pulling from hydrocron at all, no error returned...', e)
             retry_cnt += 1
             time.sleep(random.uniform(1, 30))
             continue
