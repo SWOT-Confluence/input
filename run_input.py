@@ -238,10 +238,12 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
 
 def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
-
+    print(f"Processing reach ID: {reachid}")
 
     reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range)
-    reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
+    reach_df['datetime'] = reach_df['time_str'].apply(
+        lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
+    )
     reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
 
     if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
@@ -255,6 +257,9 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
     node_df_list = []
     for nodeid in nodeids:
+        
+        print(f"Processing node ID: {nodeid}")
+        
         node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range)
 
         # filter by reach observed days and average duplicate indexes
@@ -267,8 +272,9 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
         # result_df = result_df.groupby('time_str_parse').mean()
 
         # Convert datetime strings to datetime objects
-        # reach_df['datetime'] = pd.to_datetime(reach_df['time_str'], errors='coerce')
-        node_df['datetime'] = pd.to_datetime(node_df['time_str'], errors='coerce')
+        node_df['datetime'] = node_df['time_str'].apply(
+            lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
+        )
 
         # Extract dates
         reach_df['date'] = reach_df['datetime'].dt.date
@@ -358,7 +364,6 @@ def load_sword(reachid, sworddir, sword_version):
         '6':'sa'
     }
 
-    print(reachid)
     sword_path = os.path.join(sworddir, cont_map[str(reachid)[0]] + f'_sword_v{sword_version}.nc')
     sword = netCDF4.Dataset(sword_path)
 
