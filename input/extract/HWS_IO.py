@@ -50,21 +50,13 @@ class HWS_IO:
         for t in ts:
             if t > 0:
                 delta = epoch + datetime.timedelta(seconds=t)
-                print('type delta', type(delta))
                 tall.append(delta.timestamp())
-                # print(epoch + datetime.timedelta(seconds=t))
-                print(tall)
             else:
                 tall.append(0)
 
         # tall = [ epoch + datetime.timedelta(seconds=t) if t > 0 else 0 for t in ts]
 
         self.ObsData["t"]=array(tall)
-        print(self.ObsData["t"], 'test-')
-        print('test1', diff(self.ObsData["t"]).T*86400)
-        print('test2', ones((1,self.ObsData["nR"])))
-        print('test3',self.ObsData["nR"]*(self.ObsData["nt"]-1))
-        print('test4', diff(self.ObsData["t"]).T*86400 * ones((1,self.ObsData["nR"])),(self.ObsData["nR"]*(self.ObsData["nt"]-1)))
         self.ObsData["dt"]=reshape(diff(self.ObsData["t"]).T*86400 * ones((1,self.ObsData["nR"])),(self.ObsData["nR"]*(self.ObsData["nt"]-1),1))
 
         self.ObsData["h"]=empty(  (self.ObsData["nR"],self.ObsData["nt"]) ) #water surface elevation (wse), [m]

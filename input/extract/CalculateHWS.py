@@ -72,7 +72,6 @@ class CalculateHWS:
         self.hall=self.h
         self.wall=self.w
         self.dAall=empty( (self.D.nR,self.D.nt)   )
-        print(self.dAll)
 
         if ConstrainHWSwitch and CalcAreaFitOpt== 0:
             print('If you want to use Fluvial Hypsometry constraint, you also need to do CalcAreaFitOpt > 0')
@@ -372,10 +371,6 @@ class CalculateHWS:
         igoodw=np.logical_not(self.w[r,:] == NODATA)
         igoodhw=np.logical_and(igoodh,igoodw)
         ngood=np.sum(igoodhw)
-        print('igoodhw', igoodhw)
-        print('numgood', ngood)
-        print('type numgood')
-        print('this is the data', self.h[r,:])
 
         if ngood > 5:
             hdata=np.reshape(self.h[r,:],(self.D.nt,))

@@ -120,7 +120,7 @@ def find_closest_date(row, df):
     out_df.columns = df.columns
 
     if pd.isna(date):
-        print('returning empty, date')
+        # print('returning empty, date')
         return out_df
 
     df_filtered = df[df['date'] == date]
@@ -129,7 +129,7 @@ def find_closest_date(row, df):
         return out_df
     
     out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
-    print('return successfull')
+    # print('return successfull')
 
     return out_df
 
@@ -190,7 +190,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
                 # loads data into df
                 df = data['results']['csv']
                 df = pd.read_csv(StringIO(df))
-                print('Successfully pulled data and put in dictionary')
+                # print('Successfully pulled data and put in dictionary')
                 retry_cnt = 999
 
             else:
