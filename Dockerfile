@@ -1,6 +1,6 @@
-# Stage 0 - Create from Python3.9.5 image
-# FROM python:3.9-slim-buster as stage0
-FROM python:3.9-slim-buster
+# Stage 0 - Create from Python3.12 image
+# FROM python:3.12-slim-bookworm as stage0
+FROM python:3.12-slim-bookworm
 
 # Stage 1 - Debian dependencies
 # FROM stage0 as stage1
