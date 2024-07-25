@@ -48,6 +48,7 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 
 
 FLOAT_FILL = -999999999999
+INT_FILL = -999
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -303,12 +304,9 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
 
         # node_q wrong datatype
         cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
-        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(FLOAT_FILL)
+        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(INT_FILL)
 
         node_df_list.append(final_df)
-
-                # Calculate d_x_area
-
 
     return reach_df, node_df_list
 
