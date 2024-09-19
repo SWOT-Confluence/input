@@ -28,7 +28,7 @@ def write_data(swot_id, node_ids, data, output_dir):
         dictionary of SWOT data variables
     """
 
-    dataset = ncf.Dataset(os.path.join(output_dir, str(swot_id)+'_SWOT.nc'), 'a')
+    dataset = ncf.Dataset(os.path.join(output_dir, str(swot_id)+'_SWOT.nc'), 'w')
     create_dimensions(dataset=dataset, obs_times=data['reach']['time'], node_ids=node_ids)
     define_global_obs(dataset=dataset, data=data)
 
