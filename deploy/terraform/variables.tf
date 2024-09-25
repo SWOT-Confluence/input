@@ -1,3 +1,8 @@
+variable "api_key" {
+  type        = string
+  description = "API key to query Hydrocron"
+}
+
 variable "app_name" {
   type        = string
   description = "Application name"

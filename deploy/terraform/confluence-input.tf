@@ -39,3 +39,11 @@ resource "aws_batch_job_definition" "generate_batch_jd_input" {
   propagate_tags        = true
   tags = { "job_definition": "${var.prefix}-input" }
 }
+
+# API key parameter
+resource "aws_ssm_parameter" "hydrocron_key_parameter" {
+  name        = "${var.prefix}-hydrocron-key"
+  description = "Hydrocron confluence API key"
+  type        = "SecureString"
+  value = "${var.api_key}"
+}
