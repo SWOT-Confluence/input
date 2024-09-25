@@ -12,6 +12,8 @@ DEFAULT json file is "reach_node.json" and runs in "river" context.
 
 # Standard imports
 import argparse
+import boto3
+import botocore
 from datetime import datetime
 import json
 import pandas as pd
@@ -49,6 +51,8 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 
 FLOAT_FILL = -999999999999
 INT_FILL = -999
+
+SSM_CLIENT = boto3.session.Session().client("ssm")
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -89,6 +93,11 @@ def create_args():
                 help="Version of sword we are using",
                 default="16")
 
+    arg_parser.add_argument("-p",
+                            "--prefix",
+                            type=str,
+                            help="Prefix for AWS environment.",
+                            default="")
 
     return arg_parser
 
@@ -156,25 +165,28 @@ def get_reach_nodes(rootgrp, reach_id):
     return list(set(all_nodes))
 
 
-def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
+def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_key):
+
     baseurl= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
-    
-    fieldstrs=''
+    fieldstrs = ','.join(fields)
+    params = {
+        "feature": reach_or_node,
+        "feature_id": id_of_interest,
+        "output": "csv",
+        "start_time": date_range.split("&")[1].split("=")[1],
+        "end_time": date_range.split("&")[2].split("=")[1],
+        "fields": fieldstrs
+    }
+    headers = {}
+    if api_key:
+        headers["x-hydrocon-key"] = api_key
+    print(f"Query parameters: {params}")
 
-    for field in fields:
-        if fieldstrs:
-            field = ','+field
-        fieldstrs+=field
-        
-    dataformat='csv' #switch this to csv to avoid getting all the data
-
-    url=baseurl + f'feature={reach_or_node}&feature_id=' +  str(id_of_interest) + date_range + 'output=' + dataformat + '&fields=' + fieldstrs
-    # df = pd.Dataframe(columns = fields)
     retry_cnt = 0
     while retry_cnt < 10:
         # pull data from HydroChron into res variable
         try:
-            data = requests.get(url).json()
+            data = requests.get(url=baseurl, headers=headers, params=params).json()
         except Exception as e:
             print('Error pulling from hydrocron at all, no error returned...', e)
             retry_cnt += 1
@@ -237,11 +249,19 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range):
     #     df.loc[len(df.index)]=rowdata
     return df
 
-def process_reach_via_hydrocron(reachid, nodeids, date_range):
+def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
     print(f"Processing reach ID: {reachid}")
+    
+    # retrieve API key
+    try:
+        api_key = SSM_CLIENT.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)["Parameter"]["Value"]
+    except botocore.exceptions.ClientError as error:
+        api_key = ""
+        print(error)
+        print("Not querying with Hydrocron API key.")
 
-    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range)
+    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range, api_key)
     reach_df['datetime'] = reach_df['time_str'].apply(
         lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
     )
@@ -261,7 +281,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range):
         
         print(f"Processing node ID: {nodeid}")
         
-        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range)
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
 
         # filter by reach observed days and average duplicate indexes
         # node_df['time_str_parse'] = node_df['time_str'].str[:10]
@@ -381,6 +401,7 @@ def main():
     sworddir = args.sworddir
     date_range = args.time
     swordversion = args.swordversion
+    prefix = args.prefix
 
     # pull sword and find all reach data
     reachid = get_reachids(reachjson,index_to_run)['reach_id']
@@ -392,7 +413,7 @@ def main():
     nodeids = get_reach_nodes(sword, reachid)
 
     # Pull observation data using hydrocron
-    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, date_range)
+    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
