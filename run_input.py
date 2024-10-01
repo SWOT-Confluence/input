@@ -52,7 +52,7 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 FLOAT_FILL = -999999999999
 INT_FILL = -999
 
-SSM_CLIENT = boto3.session.Session().client("ssm")
+SSM_CLIENT = boto3.session.Session(profile_name="confluence-dev1").client("ssm")
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -179,7 +179,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     }
     headers = {}
     if api_key:
-        headers["x-hydrocon-key"] = api_key
+        headers["x-hydrocron-key"] = api_key
     print(f"Query parameters: {params}")
 
     retry_cnt = 0
