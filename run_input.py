@@ -52,7 +52,7 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 FLOAT_FILL = -999999999999
 INT_FILL = -999
 
-SSM_CLIENT = boto3.session.Session(profile_name="confluence-dev1").client("ssm")
+SSM_CLIENT = boto3.session.Session().client("ssm")
 
 def create_args():
     """Create and return argparser with arguments."""
