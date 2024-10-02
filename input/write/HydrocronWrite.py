@@ -1,5 +1,6 @@
 import os
 import netCDF4 as ncf
+from netCDF4 import stringtochar
 import numpy as np
 
 CONTINENTS = { 1: "AF", 2: "EU", 3: "AS", 4: "AS", 5: "OC", 6: "SA", 7: "NA", 8: "NA", 9:"NA" }
@@ -30,7 +31,7 @@ def write_data(swot_id, node_ids, data, output_dir):
 
     dataset = ncf.Dataset(os.path.join(output_dir, str(swot_id)+'_SWOT.nc'), 'w')
     create_dimensions(dataset=dataset, obs_times=data['reach']['time'], node_ids=node_ids)
-    define_global_obs(dataset=dataset, data=data)
+    write_global_obs(dataset=dataset, data=data)
 
     reach_group = dataset.createGroup("reach")
     write_reach_vars(reach_group, data, swot_id)
@@ -65,7 +66,7 @@ def create_dimensions( dataset, obs_times, node_ids):
     nx_v[:] = range(1, len(node_ids) + 1)
 
 
-def define_global_obs(dataset, data):
+def write_global_obs(dataset, data):
     """Define global observation NetCDF variable.
     
     Parameters
@@ -75,12 +76,13 @@ def define_global_obs(dataset, data):
 
     """
     
-    obs = dataset.createVariable("observations", "S1", ("nt",))
+    nchars = dataset.createDimension("nchars", 10)
+    obs = dataset.createVariable("observations", "S1", ("nt", "nchars"))
     obs.units = "pass"
     obs.long_name = "pass number that indicates cycle/pass observations"
     obs.comment = "A list of pass numbers that identify each reach and " \
         + "node observation."
-    obs[:] = np.array(data["reach"]["cycle_pass"])
+    obs[:] = stringtochar(np.array(data["reach"]["cycle_pass"], dtype="S10"))
     
 def write_node_vars(dataset, data, reach_id, node_ids):
         """Create and write reach-level variables to NetCDF4 dataset.
