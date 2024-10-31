@@ -59,8 +59,8 @@ def write_area_fit(dataset, area_fit_dict):
     
     if area_fit_dict:
         new_var_f[:] = area_fit_dict['fit_coeffs']
-        new_var_w[:] = area_fit_dict['h_break']
-        new_var_h[:] = area_fit_dict['w_break']
+        new_var_h[:] = area_fit_dict['h_break']
+        new_var_w[:] = area_fit_dict['w_break']
 
     # create scalars, add metadata here 
     scalar_variables_dict = {
