@@ -179,7 +179,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     }
     headers = {}
     if api_key:
-        headers["x-hydrocon-key"] = api_key
+        headers["x-hydrocron-key"] = api_key
     print(f"Query parameters: {params}")
 
     retry_cnt = 0
@@ -256,6 +256,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     # retrieve API key
     try:
         api_key = SSM_CLIENT.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)["Parameter"]["Value"]
+        print("Querying with Hydrocron API key.")
     except botocore.exceptions.ClientError as error:
         api_key = ""
         print(error)
