@@ -77,7 +77,7 @@ def write_area_fit(dataset, area_fit_dict):
     for key in scalar_variables_dict:
         new_var = hwfit_group.createVariable(key, np.float64, fill_value=FLOAT_FILL)
         if area_fit_dict:
-            new_var.assignValue(scalar_variables_dict[key])
+            new_var.assignValue(area_fit_dict[key])
 
 
     # for key in list(area_fit_dict.keys()):
