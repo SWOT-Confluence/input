@@ -268,6 +268,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     )
     reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
 
+    area_fit_dict = False
     if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
         print('Calculating HWS...')
         IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
@@ -276,6 +277,10 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
         if len(hws_obj.dAall) == 1:
             hws_obj.dAall = hws_obj.dAall[0]
         reach_df["d_x_area"] = hws_obj.dAall
+        try:
+            area_fit_dict = hws_obj.area_fit
+        except:
+            area_fit_dict = False
 
     node_df_list = []
     for nodeid in nodeids:
@@ -329,7 +334,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
         node_df_list.append(final_df)
 
-    return reach_df, node_df_list
+    return reach_df, node_df_list, area_fit_dict
 
 def prep_output(reach_df, node_df_list):
     output_data = {'reach':{}, 'node':{}}
@@ -414,13 +419,15 @@ def main():
     nodeids = get_reach_nodes(sword, reachid)
 
     # Pull observation data using hydrocron
-    reach_df, node_df_list = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
+
+    reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
+
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
 
     # write out parsed data to timeseries file
-    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data, output_dir = outdir)
+    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data,area_fit_dict = area_fit_dict, output_dir = outdir)
     
     end = datetime.now()
     print(f"Total execution time: {end - start}.")

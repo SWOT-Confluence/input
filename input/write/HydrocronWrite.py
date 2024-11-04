@@ -15,7 +15,7 @@ def convert_to_int_with_fill(arr, fill_value):
     return arr.astype(int)
 
 # HCWrite.write_data(swot_id=reachid, node_ids=nodeids, reach_df = reach_df, node_df_list = node_df_list, output_dir = '.')
-def write_data(swot_id, node_ids, data, output_dir):
+def write_data(swot_id, node_ids, data, area_fit_dict, output_dir):
     """Writes node and reach level SWOT data to NetCDF format.
     
     TODO:
@@ -34,9 +34,79 @@ def write_data(swot_id, node_ids, data, output_dir):
     write_global_obs(dataset=dataset, data=data)
 
     reach_group = dataset.createGroup("reach")
-    write_reach_vars(reach_group, data, swot_id)
+    write_reach_vars(reach_group, data, swot_id, area_fit_dict)
     node_group = dataset.createGroup("node")
     write_node_vars(node_group, data, swot_id, node_ids)
+
+    
+
+def write_area_fit(dataset, area_fit_dict):
+
+    hwfit_group = dataset.createGroup("hwfit")
+
+    hwfit_group.createDimension("fit_coeffs_dim_0", 2)
+    hwfit_group.createDimension("fit_coeffs_dim_1", 3)
+    hwfit_group.createDimension("fit_coeffs_dim_2", 1)
+
+    hwfit_group.createDimension("h_break_dim_0", 4)
+    hwfit_group.createDimension("h_break_dim_1", 1)
+
+    hwfit_group.createDimension("w_break_dim_0", 4)
+    hwfit_group.createDimension("w_break_dim_1", 1)
+
+    new_var_f = hwfit_group.createVariable("fit_coeffs", np.float64, ("fit_coeffs_dim_0", "fit_coeffs_dim_1", "fit_coeffs_dim_2"),fill_value=FLOAT_FILL)
+    new_var_w = hwfit_group.createVariable("w_break", np.float64, ("w_break_dim_0", "w_break_dim_1"),fill_value=FLOAT_FILL)
+    new_var_h = hwfit_group.createVariable("h_break", np.float64, ("h_break_dim_0", "h_break_dim_1"),fill_value=FLOAT_FILL)
+    
+    if area_fit_dict:
+        new_var_f[:] = area_fit_dict['fit_coeffs']
+        new_var_h[:] = area_fit_dict['h_break']
+        new_var_w[:] = area_fit_dict['w_break']
+
+    # create scalars, add metadata here 
+    scalar_variables_dict = {
+        "h_err_stdev":None,
+        "h_variance":None,
+        "h_w_nobs":None,
+        "hw_covariance":None,
+        "med_flow_area":None,
+        "w_err_stdev":None,
+        "w_variance":None
+    }
+
+    for key in scalar_variables_dict:
+        new_var = hwfit_group.createVariable(key, np.float64, fill_value=FLOAT_FILL)
+        if area_fit_dict:
+            new_var.assignValue(area_fit_dict[key])
+
+
+    # for key in list(area_fit_dict.keys()):
+    #     data = area_fit_dict[key]
+    #     try:
+    #         dims = data.shape
+    #         data_is_array = True
+    #         num_dims = len(dims)
+    #         cnt = 0
+    #         all_dims = []
+    #         for i in range(num_dims):
+    #             dim_name = f'{key}_dim_{cnt}'
+    #             hwfit_group.createDimension(dim_name, None)
+    #             all_dims.append(dim_name)
+    #             cnt += 1
+    #         new_var = hwfit_group.createVariable(key, np.float64, tuple(all_dims))
+    #         new_var[:] = data
+    #     except:
+    #         new_var = hwfit_group.createVariable(key, np.float64)
+    #         new_var.assignValue(data)
+            
+
+
+
+
+
+
+
+
 
 
 def create_dimensions( dataset, obs_times, node_ids):
@@ -410,7 +480,7 @@ def write_node_vars(dataset, data, reach_id, node_ids):
             + "positive value indicates the right side of the swath."
         xtrk_dist[:] = np.nan_to_num(data["node"]["xtrk_dist"], copy=True, nan=FLOAT_FILL)
 
-def write_reach_vars(dataset, data, reach_id):
+def write_reach_vars(dataset, data, reach_id, area_fit_dict):
         """Create and write reach-level variables to NetCDF4 dataset.
         
         TODO:
@@ -754,3 +824,5 @@ def write_reach_vars(dataset, data, reach_id):
             + "indicates the left side of the swath, relative to the spacecraft " \
             + "velocity vector. A positive value indicates the right side of the swath."
         xtrk_dist[:] = np.nan_to_num(data["reach"]["xtrk_dist"], copy=True, nan=FLOAT_FILL)
+
+        write_area_fit(dataset, area_fit_dict)
