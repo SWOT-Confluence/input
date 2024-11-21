@@ -156,15 +156,16 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     headers = {}
     if api_key:
         headers["x-hydrocron-key"] = api_key
-    logging.info(f"Query parameters: {params}")
+    logging.info("Query parameters: %s", params)
 
     retry_cnt = 0
     while retry_cnt < 10:
         # pull data from HydroChron into res variable
         try:
             data = requests.get(url=BASE_URL, headers=headers, params=params).json()
+            logging.info('Hydrocron query: %s', data.url)
         except Exception as e:
-            logging.info('Error pulling from hydrocron at all, no error returned...', e)    # retry
+            logging.info('Error pulling from hydrocron at all, no error returned...%s', e)    # retry
             retry_cnt += 1
             time.sleep(random.uniform(1, 30))
             continue
@@ -172,7 +173,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
         # check that it worked
         if 'error' in data.keys():    # retry
             retry_cnt += 1
-            logging.info('Error pulling data:',data['error'])
+            logging.info('Error pulling data: %s', data['error'])
             time.sleep(random.uniform(1, 30))
         elif 'status' in data.keys():
             if data['status']=='200 OK':
@@ -191,7 +192,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
             time.sleep(random.uniform(1, 30))
 
     if retry_cnt != 999:
-        logging.info('Failed to pull ', reach_or_node, id_of_interest)
+        logging.info('Failed to pull %s - %s', reach_or_node, id_of_interest)
         if reach_or_node == "Reach":
             logging.info("Failed to pull reach... exiting...")
             sys.exit(0)
@@ -202,7 +203,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
 def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     """Retrieve reach and node data from Hydrocron."""
 
-    logging.info(f"Processing reach ID: {reachid}")
+    logging.info("Processing reach ID: %s", reachid)
     
     # retrieve API key
     try:
@@ -236,7 +237,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     node_df_list = []
     for nodeid in nodeids:
 
-        logging.info(f"Processing node ID: {nodeid}")
+        logging.info("Processing node ID: %s", nodeid)
         node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
 
         # Convert datetime strings to datetime objects
@@ -370,7 +371,7 @@ def main():
     HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data,area_fit_dict = area_fit_dict, output_dir = outdir)
     
     end = datetime.now()
-    logging.info(f"Total execution time: {end - start}.")
+    logging.info("Total execution time: %s", end - start)
 
 
 if __name__ == "__main__":
