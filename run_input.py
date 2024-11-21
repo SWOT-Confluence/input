@@ -38,9 +38,13 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 FLOAT_FILL = -999999999999
 INT_FILL = -999
 SSM_CLIENT = boto3.session.Session().client("ssm")
-RETRY_COUNT = 10
+RETRY_COUNT = 10    # number of retries after failure
+RANDOM_SLEEP = 30    # seconds
 
 logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -154,48 +158,53 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
 
     retry_cnt = 0
     while retry_cnt < RETRY_COUNT:
-        # pull data from HydroCron into res variable
         try:
-            data = requests.get(url=BASE_URL, headers=headers, params=params).json()
-            logging.info('Hydrocron query: %s', data)
+            data = requests.get(url=BASE_URL, headers=headers, params=params)
+            logging.info('Hydrocron query: %s', data.url)
+            data = data.json()
         except Exception as e:
-            logging.info('Error pulling from hydrocron:%s', e)    # retry
+            logging.info('Exception thrown for Hydrocron query: %s. Retrying...', e)
             retry_cnt += 1
-            time.sleep(random.uniform(1, 30))
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
             continue
 
         # check if limit has been exceeded
         if 'message' in data.keys():
             if data['message'] == 'Limit Exceeded':
-                logging.info("Hydrocron request limit reached for API key. Exiting...")
-                sys.exit(0)
+                logging.error("Hydrocron request limit reached for API key. Exiting...")
+                sys.exit(1)
 
-        # check that it worked
-        if 'error' in data.keys():    # retry
+        # check for errors
+        elif 'error' in data.keys():
+            if '4' in data['error']:
+                logging.error('Invalid request made to Hydrocron: %s. Exiting...', data['error'])
+                sys.exit(1)
             retry_cnt += 1
-            logging.info('Error pulling data: %s', data['error'])
-            time.sleep(random.uniform(1, 30))
+            logging.info('Error pulling data: %s. Retrying...', data['error'])
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
+
+        # read in data
         elif 'status' in data.keys():
             if data['status']=='200 OK':
-                # loads data into df
                 df = data['results']['csv']
                 df = pd.read_csv(StringIO(df))
                 retry_cnt = 999
 
             else:
                 retry_cnt += 1
-                logging.info('Something went wrong: retrying')
-                time.sleep(random.uniform(1, 30))
+                logging.info('Data status not 200: %s', data)
+                time.sleep(random.uniform(1, RANDOM_SLEEP))
+
         else:
             retry_cnt += 1
-            logging.info('Something went wrong: data not pulled or not stashed in dictionary correctly')
-            time.sleep(random.uniform(1, 30))
+            logging.info('Unable to retrieve data, Hydrcron response: %s', data)
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
 
     if retry_cnt != 999:
         logging.info('Failed to pull %s - %s', reach_or_node, id_of_interest)
         if reach_or_node == "Reach":
-            logging.info("Failed to pull reach... exiting...")
-            sys.exit(0)
+            logging.error("Failed to pull reach. Exiting...")
+            sys.exit(1)
 
     return df
 
@@ -276,12 +285,17 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
 
 def prep_output(reach_df, node_df_list):
+    """Prep data for output to NetCDF."""
+
     output_data = {'reach':{}, 'node':{}}
     for header in reach_df.columns:
         output_data['reach'][header] = reach_df[header].values
+
     stacked_array = np.stack([df.values for df in node_df_list], axis=-1)
+
     # Transpose the array to get the desired shape (len(df) x num_dfs)
     final_arrays = [stacked_array[:, i, :].T for i in range(stacked_array.shape[1])]
+
     cnt = 0
     for header in node_df_list[0].columns:
         output_data['node'][header] = final_arrays[cnt]
@@ -363,6 +377,7 @@ def main():
 
     # Pull observation data using hydrocron
     reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
+    logging.info("Located %s timesteps.", reach_df.shape[0])
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
