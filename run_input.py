@@ -38,6 +38,7 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
 FLOAT_FILL = -999999999999
 INT_FILL = -999
 SSM_CLIENT = boto3.session.Session().client("ssm")
+RETRY_COUNT = 10
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -152,16 +153,22 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     logging.info("Query parameters: %s", params)
 
     retry_cnt = 0
-    while retry_cnt < 10:
-        # pull data from HydroChron into res variable
+    while retry_cnt < RETRY_COUNT:
+        # pull data from HydroCron into res variable
         try:
             data = requests.get(url=BASE_URL, headers=headers, params=params).json()
-            logging.info('Hydrocron query: %s', data.url)
+            logging.info('Hydrocron query: %s', data)
         except Exception as e:
-            logging.info('Error pulling from hydrocron at all, no error returned...%s', e)    # retry
+            logging.info('Error pulling from hydrocron:%s', e)    # retry
             retry_cnt += 1
             time.sleep(random.uniform(1, 30))
             continue
+
+        # check if limit has been exceeded
+        if 'message' in data.keys():
+            if data['message'] == 'Limit Exceeded':
+                logging.info("Hydrocron request limit reached for API key. Exiting...")
+                sys.exit(0)
 
         # check that it worked
         if 'error' in data.keys():    # retry
@@ -302,7 +309,7 @@ def get_reachids(reachjson, index_to_run):
         index=int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
     else:
         index=index_to_run
-  
+
     with open(reachjson) as jsonfile:
         data = json.load(jsonfile)
 
