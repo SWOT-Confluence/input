@@ -49,43 +49,36 @@ def create_args():
                             "--index",
                             type=int,
                             help="Index to specify input data to execute on, value of -235 indicates AWS selection")
-    
     arg_parser.add_argument("-r",
                             "--reachesjson",
                             type=str,
                             help="Path to the reaches.json",
                             default="/mnt/data/reaches_of_interest.json")
-
     arg_parser.add_argument("-o",
                             "--outdir",
                             type=str,
                             help="Directory to output data to",
                             default="/mnt/data/swot/")
-    
     arg_parser.add_argument("-s",
-                        "--sworddir",
-                        type=str,
-                        help="Directory containing SWORD files",
-                        default="/mnt/data/sword/")
-
+                            "--sworddir",
+                            type=str,
+                            help="Directory containing SWORD files",
+                            default="/mnt/data/sword/")
     arg_parser.add_argument("-t",
-                    "--time",
-                    type=str,
-                    help="Time parameter to search",
-                    default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
-    
+                            "--time",
+                            type=str,
+                            help="Time parameter to search",
+                            default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
     arg_parser.add_argument("-v",
-                "--swordversion",
-                type=str,
-                help="Version of sword we are using",
-                default="16")
-
+                            "--swordversion",
+                            type=str,
+                            help="Version of sword we are using",
+                            default="16")
     arg_parser.add_argument("-p",
                             "--prefix",
                             type=str,
                             help="Prefix for AWS environment.",
                             default="")
-
     return arg_parser
 
 
