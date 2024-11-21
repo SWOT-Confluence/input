@@ -1,13 +1,4 @@
 """Script to run Input module.
-
-The Input module logs into PO.DAAC AWS S3 infrastructure (TODO) and the 
-Confluence S3 infrastructure. The Input module extracts SWOT observations and
-formats them as one NetCDF per reach.
-
-Command line arguments:
-[1] JSON file name, e.g. -> "reach_node.json" or "lake.json"
-[2] Context of run, e.g. -> "lake" or "river"
-DEFAULT json file is "reach_node.json" and runs in "river" context.
 """
 
 # Standard imports
@@ -39,19 +30,11 @@ from input.extract.HWS_IO import HWS_IO
 REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
     'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
     'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
-
-
-# NODE_FIELDS = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-#             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
-#       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
 NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
             'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
     'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
-
-
 FLOAT_FILL = -999999999999
 INT_FILL = -999
-
 SSM_CLIENT = boto3.session.Session().client("ssm")
 
 def create_args():
@@ -101,30 +84,30 @@ def create_args():
 
     return arg_parser
 
+
 def get_exe_data(index, json_file):
-        """Retrun dictionary of data required to execution input operations.
+    """Retrun dictionary of data required to execution input operations.
+    
+    Parameters
+    ----------
+    index: int
+        integer to index JSON data on
+    json_file: Path
+        path to JSON file to pull data from
         
-        Parameters
-        ----------
-        index: int
-            integer to index JSON data on
-        json_file: Path
-            path to JSON file to pull data from
-            
-        Returns
-        -------
-        dictionary of execution data
-        """
-        
-        with open(json_file) as json_file:
-            data = json.load(json_file)[index]
-        return data
+    Returns
+    -------
+    dictionary of execution data
+    """
+    
+    with open(json_file) as json_file:
+        data = json.load(json_file)[index]
+    return data
 
 
-
-
-# Function to find the closest datetime
 def find_closest_date(row, df):
+    """Function to find the closest datetime."""
+
     date = row['date']
     out_df = pd.Series([None] * len(df.columns))
     out_df.columns = df.columns
@@ -144,24 +127,15 @@ def find_closest_date(row, df):
     return out_df
 
 
-
 def get_reach_nodes(rootgrp, reach_id):
+    """Get node ids from SWORD."""
 
     all_nodes = []
-
     node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
-
     if len(node_ids_indexes[0])!=0:
         for y in node_ids_indexes[0]:
             node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
             all_nodes.append(node_id)
-
-
-
-        # all_nodes.extend(node_ids[0].tolist())
-
-    rootgrp.close()
-
     return list(set(all_nodes))
 
 
@@ -188,13 +162,13 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
         try:
             data = requests.get(url=baseurl, headers=headers, params=params).json()
         except Exception as e:
-            print('Error pulling from hydrocron at all, no error returned...', e)
+            print('Error pulling from hydrocron at all, no error returned...', e)    # retry
             retry_cnt += 1
             time.sleep(random.uniform(1, 30))
             continue
 
         # check that it worked
-        if 'error' in data.keys():
+        if 'error' in data.keys():    # retry
             retry_cnt += 1
             print('Error pulling data:',data['error'])
             time.sleep(random.uniform(1, 30))
@@ -221,33 +195,8 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
             print("Failed to pull reach... exiting...")
             sys.exit(0)
 
-        # df = pd.DataFrame(columns = fields)
-        # raise ValueError('Failed to pull node_df')
-
-
-
-
-
-
-    # OLD PARSING FOR GEOJSON
-    # df=pd.DataFrame(columns=fields)
-
-    # for feature in data['results']['geojson']['features']:    
-    #     #rowdata=[feature['properties']['cycle_id'],feature['properties']['pass_id'],feature['properties']['time_str'],feature['properties']['wse'],feature['properties']['reach_q']]    
-        
-    #     data_els=feature['properties']
-        
-    #     rowdata=[]
-    #     for field in fields:
-    #         if field == 'slope':
-    #             datafield=float(data_els[field])
-    #         else:
-    #             datafield=data_els[field]
-                
-    #         rowdata.append(datafield)
-        
-    #     df.loc[len(df.index)]=rowdata
     return df
+
 
 def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
@@ -289,15 +238,6 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
         
         node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
 
-        # filter by reach observed days and average duplicate indexes
-        # node_df['time_str_parse'] = node_df['time_str'].str[:10]
-        # node_df = node_df.reset_index()
-        # node_df = node_df.rename(columns=lambda x: x + '_right' if x != 'time_str_parse' else x)
-        # merged = pd.merge(reach_df, node_df,on='time_str_parse', how='left')
-        # result_df = merged[['time_str_parse'] + [col for col in node_df.columns if col != 'time_str_parse']]
-        # result_df = result_df.rename(columns=lambda x: x.replace('_right', '') if x != 'time_str_parse' else x)
-        # result_df = result_df.groupby('time_str_parse').mean()
-
         # Convert datetime strings to datetime objects
         node_df['datetime'] = node_df['time_str'].apply(
             lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
@@ -307,17 +247,13 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
         reach_df['date'] = reach_df['datetime'].dt.date
         node_df['date'] = node_df['datetime'].dt.date
 
-
-
         # Find the closest datetimes for each date in reach_df
         closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
-        # raise
 
         # Filtering columns: Keep only columns whose names are not integers (left over from the concat)
         closest_data = closest_data.loc[:, ~closest_data.columns.to_series().apply(lambda x: isinstance(x, int))]
         if len(list(closest_data.columns)) == 0:
             closest_data = pd.DataFrame(columns = list(node_df.columns))
-            # raise
 
         # Combine the original time_str with the closest data from node_df
         extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
@@ -336,6 +272,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
     return reach_df, node_df_list, area_fit_dict
 
+
 def prep_output(reach_df, node_df_list):
     output_data = {'reach':{}, 'node':{}}
     for header in reach_df.columns:
@@ -349,7 +286,8 @@ def prep_output(reach_df, node_df_list):
         cnt += 1 
 
     return output_data
-            
+
+
 def get_reachids(reachjson,index_to_run):
     """Extract and return a list of reach identifiers from json file.
     
@@ -375,6 +313,7 @@ def get_reachids(reachjson,index_to_run):
 
     return data[index]
 
+
 def load_sword(reachid, sworddir, sword_version):
     cont_map = {
         '1':'af',
@@ -392,6 +331,7 @@ def load_sword(reachid, sworddir, sword_version):
     sword = netCDF4.Dataset(sword_path)
 
     return sword
+
 
 def main():
     """Main method to execute Input class methods."""
@@ -417,11 +357,10 @@ def main():
 
     # find node ids for reach, also close sos
     nodeids = get_reach_nodes(sword, reachid)
+    sword.close()
 
     # Pull observation data using hydrocron
-
     reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
-
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
