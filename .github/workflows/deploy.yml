@@ -130,7 +130,7 @@ jobs:
         run: |
           echo "TF_VAR_environment=$TARGET_ENV" >> $GITHUB_ENV
           echo "TF_VAR_prefix=$PREFIX_ENV" >> $GITHUB_ENV
-          echo "TF_VAR_api_key"=${{ secrets['API_KEY'] }}" >> $GITHUB_ENV
+          echo "TF_VAR_api_key=${{ secrets['API_KEY'] }}" >> $GITHUB_ENV
           echo "TF_IN_AUTOMATION=true" >> $GITHUB_ENV
 
       - name: Initialize Terraform
