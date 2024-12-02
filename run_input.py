@@ -1,13 +1,4 @@
 """Script to run Input module.
-
-The Input module logs into PO.DAAC AWS S3 infrastructure (TODO) and the 
-Confluence S3 infrastructure. The Input module extracts SWOT observations and
-formats them as one NetCDF per reach.
-
-Command line arguments:
-[1] JSON file name, e.g. -> "reach_node.json" or "lake.json"
-[2] Context of run, e.g. -> "lake" or "river"
-DEFAULT json file is "reach_node.json" and runs in "river" context.
 """
 
 # Standard imports
@@ -16,6 +7,7 @@ import boto3
 import botocore
 from datetime import datetime
 import json
+import logging
 import pandas as pd
 import requests
 import numpy as np
@@ -36,23 +28,23 @@ from input.extract.HWS_IO import HWS_IO
 
 
 # global variables
+BASE_URL= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
 REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
     'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
     'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
-
-
-# NODE_FIELDS = ['d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-#             'node_q', 'node_q_b','reach_id','slope', 'slope2_u', 'slope_u', 'slope2', 'time', 'time_str', 'width', 
-#       'width_u', 'wse', 'wse_u', 'xovr_cal_q']
 NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
             'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
     'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
-
-
 FLOAT_FILL = -999999999999
 INT_FILL = -999
-
 SSM_CLIENT = boto3.session.Session().client("ssm")
+RETRY_COUNT = 10    # number of retries after failure
+RANDOM_SLEEP = 30    # seconds
+
+logging.getLogger().setLevel(logging.INFO)
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.INFO)
 
 def create_args():
     """Create and return argparser with arguments."""
@@ -62,75 +54,67 @@ def create_args():
                             "--index",
                             type=int,
                             help="Index to specify input data to execute on, value of -235 indicates AWS selection")
-    
     arg_parser.add_argument("-r",
                             "--reachesjson",
                             type=str,
                             help="Path to the reaches.json",
                             default="/mnt/data/reaches_of_interest.json")
-
     arg_parser.add_argument("-o",
                             "--outdir",
                             type=str,
                             help="Directory to output data to",
                             default="/mnt/data/swot/")
-    
     arg_parser.add_argument("-s",
-                        "--sworddir",
-                        type=str,
-                        help="Directory containing SWORD files",
-                        default="/mnt/data/sword/")
-
+                            "--sworddir",
+                            type=str,
+                            help="Directory containing SWORD files",
+                            default="/mnt/data/sword/")
     arg_parser.add_argument("-t",
-                    "--time",
-                    type=str,
-                    help="Time parameter to search",
-                    default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
-    
+                            "--time",
+                            type=str,
+                            help="Time parameter to search",
+                            default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
     arg_parser.add_argument("-v",
-                "--swordversion",
-                type=str,
-                help="Version of sword we are using",
-                default="16")
-
+                            "--swordversion",
+                            type=str,
+                            help="Version of sword we are using",
+                            default="16")
     arg_parser.add_argument("-p",
                             "--prefix",
                             type=str,
                             help="Prefix for AWS environment.",
                             default="")
-
     return arg_parser
 
+
 def get_exe_data(index, json_file):
-        """Retrun dictionary of data required to execution input operations.
+    """Retrun dictionary of data required to execution input operations.
+    
+    Parameters
+    ----------
+    index: int
+        integer to index JSON data on
+    json_file: Path
+        path to JSON file to pull data from
         
-        Parameters
-        ----------
-        index: int
-            integer to index JSON data on
-        json_file: Path
-            path to JSON file to pull data from
-            
-        Returns
-        -------
-        dictionary of execution data
-        """
-        
-        with open(json_file) as json_file:
-            data = json.load(json_file)[index]
-        return data
+    Returns
+    -------
+    dictionary of execution data
+    """
+    
+    with open(json_file) as json_file:
+        data = json.load(json_file)[index]
+    return data
 
 
-
-
-# Function to find the closest datetime
 def find_closest_date(row, df):
+    """Function to find the closest datetime."""
+
     date = row['date']
     out_df = pd.Series([None] * len(df.columns))
     out_df.columns = df.columns
 
     if pd.isna(date):
-        # print('returning empty, date')
         return out_df
 
     df_filtered = df[df['date'] == date]
@@ -139,35 +123,25 @@ def find_closest_date(row, df):
         return out_df
     
     out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
-    # print('return successfull')
 
     return out_df
 
 
-
 def get_reach_nodes(rootgrp, reach_id):
+    """Get node ids from SWORD."""
 
     all_nodes = []
-
     node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
-
     if len(node_ids_indexes[0])!=0:
         for y in node_ids_indexes[0]:
             node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
             all_nodes.append(node_id)
-
-
-
-        # all_nodes.extend(node_ids[0].tolist())
-
-    rootgrp.close()
-
     return list(set(all_nodes))
 
 
 def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_key):
+    """Preform Hydrocron API request."""
 
-    baseurl= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
     fieldstrs = ','.join(fields)
     params = {
         "feature": reach_or_node,
@@ -180,87 +154,74 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     headers = {}
     if api_key:
         headers["x-hydrocron-key"] = api_key
-    print(f"Query parameters: {params}")
+    logging.info("Query parameters: %s", params)
 
     retry_cnt = 0
-    while retry_cnt < 10:
-        # pull data from HydroChron into res variable
+    while retry_cnt < RETRY_COUNT:
         try:
-            data = requests.get(url=baseurl, headers=headers, params=params).json()
+            data = requests.get(url=BASE_URL, headers=headers, params=params)
+            logging.info('Hydrocron query: %s', data.url)
+            data = data.json()
         except Exception as e:
-            print('Error pulling from hydrocron at all, no error returned...', e)
+            logging.info('Exception thrown for Hydrocron query: %s. Retrying...', e)
             retry_cnt += 1
-            time.sleep(random.uniform(1, 30))
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
             continue
 
-        # check that it worked
-        if 'error' in data.keys():
+        # check if limit has been exceeded
+        if 'message' in data.keys():
+            if data['message'] == 'Limit Exceeded':
+                logging.error("Hydrocron request limit reached for API key. Exiting...")
+                sys.exit(1)
+
+        # check for errors
+        elif 'error' in data.keys():
+            if '4' in data['error']:
+                logging.error('Invalid request made to Hydrocron: %s. Exiting...', data['error'])
+                sys.exit(1)
             retry_cnt += 1
-            print('Error pulling data:',data['error'])
-            time.sleep(random.uniform(1, 30))
+            logging.info('Error pulling data: %s. Retrying...', data['error'])
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
+
+        # read in data
         elif 'status' in data.keys():
             if data['status']=='200 OK':
-                # loads data into df
                 df = data['results']['csv']
                 df = pd.read_csv(StringIO(df))
-                # print('Successfully pulled data and put in dictionary')
                 retry_cnt = 999
 
             else:
                 retry_cnt += 1
-                print('Something went wrong: retrying')
-                time.sleep(random.uniform(1, 30))
+                logging.info('Data status not 200: %s', data)
+                time.sleep(random.uniform(1, RANDOM_SLEEP))
+
         else:
             retry_cnt += 1
-            print('Something went wrong: data not pulled or not stashed in dictionary correctly')
-            time.sleep(random.uniform(1, 30))
+            logging.info('Unable to retrieve data, Hydrcron response: %s', data)
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
 
     if retry_cnt != 999:
-        print('Failed to pull ', reach_or_node, id_of_interest)
+        logging.info('Failed to pull %s - %s', reach_or_node, id_of_interest)
         if reach_or_node == "Reach":
-            print("Failed to pull reach... exiting...")
-            sys.exit(0)
+            logging.error("Failed to pull reach. Exiting...")
+            sys.exit(1)
 
-        # df = pd.DataFrame(columns = fields)
-        # raise ValueError('Failed to pull node_df')
-
-
-
-
-
-
-    # OLD PARSING FOR GEOJSON
-    # df=pd.DataFrame(columns=fields)
-
-    # for feature in data['results']['geojson']['features']:    
-    #     #rowdata=[feature['properties']['cycle_id'],feature['properties']['pass_id'],feature['properties']['time_str'],feature['properties']['wse'],feature['properties']['reach_q']]    
-        
-    #     data_els=feature['properties']
-        
-    #     rowdata=[]
-    #     for field in fields:
-    #         if field == 'slope':
-    #             datafield=float(data_els[field])
-    #         else:
-    #             datafield=data_els[field]
-                
-    #         rowdata.append(datafield)
-        
-    #     df.loc[len(df.index)]=rowdata
     return df
 
-def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
-    print(f"Processing reach ID: {reachid}")
+def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
+    """Retrieve reach and node data from Hydrocron."""
+
+    logging.info("Processing reach ID: %s", reachid)
     
     # retrieve API key
     try:
         api_key = SSM_CLIENT.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)["Parameter"]["Value"]
-        print("Querying with Hydrocron API key.")
+        logging.info("Querying with Hydrocron API key.")
     except botocore.exceptions.ClientError as error:
         api_key = ""
-        print(error)
-        print("Not querying with Hydrocron API key.")
+        logging.error(error)
+        logging.info("Not querying with Hydrocron API key.")
 
     reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range, api_key)
     reach_df['datetime'] = reach_df['time_str'].apply(
@@ -270,7 +231,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
     area_fit_dict = False
     if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
-        print('Calculating HWS...')
+        logging.info('Calculating HWS...')
         IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
         D=DomainHWS(IO.ObsData)
         hws_obj = CalculateHWS(D, IO.ObsData)
@@ -284,19 +245,9 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
     node_df_list = []
     for nodeid in nodeids:
-        
-        print(f"Processing node ID: {nodeid}")
-        
-        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
 
-        # filter by reach observed days and average duplicate indexes
-        # node_df['time_str_parse'] = node_df['time_str'].str[:10]
-        # node_df = node_df.reset_index()
-        # node_df = node_df.rename(columns=lambda x: x + '_right' if x != 'time_str_parse' else x)
-        # merged = pd.merge(reach_df, node_df,on='time_str_parse', how='left')
-        # result_df = merged[['time_str_parse'] + [col for col in node_df.columns if col != 'time_str_parse']]
-        # result_df = result_df.rename(columns=lambda x: x.replace('_right', '') if x != 'time_str_parse' else x)
-        # result_df = result_df.groupby('time_str_parse').mean()
+        logging.info("Processing node ID: %s", nodeid)
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
 
         # Convert datetime strings to datetime objects
         node_df['datetime'] = node_df['time_str'].apply(
@@ -307,17 +258,13 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
         reach_df['date'] = reach_df['datetime'].dt.date
         node_df['date'] = node_df['datetime'].dt.date
 
-
-
         # Find the closest datetimes for each date in reach_df
         closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
-        # raise
 
         # Filtering columns: Keep only columns whose names are not integers (left over from the concat)
         closest_data = closest_data.loc[:, ~closest_data.columns.to_series().apply(lambda x: isinstance(x, int))]
         if len(list(closest_data.columns)) == 0:
             closest_data = pd.DataFrame(columns = list(node_df.columns))
-            # raise
 
         # Combine the original time_str with the closest data from node_df
         extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
@@ -336,21 +283,28 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
 
     return reach_df, node_df_list, area_fit_dict
 
+
 def prep_output(reach_df, node_df_list):
+    """Prep data for output to NetCDF."""
+
     output_data = {'reach':{}, 'node':{}}
     for header in reach_df.columns:
         output_data['reach'][header] = reach_df[header].values
+
     stacked_array = np.stack([df.values for df in node_df_list], axis=-1)
+
     # Transpose the array to get the desired shape (len(df) x num_dfs)
     final_arrays = [stacked_array[:, i, :].T for i in range(stacked_array.shape[1])]
+
     cnt = 0
     for header in node_df_list[0].columns:
         output_data['node'][header] = final_arrays[cnt]
         cnt += 1 
 
     return output_data
-            
-def get_reachids(reachjson,index_to_run):
+
+
+def get_reachids(reachjson, index_to_run):
     """Extract and return a list of reach identifiers from json file.
     
     Parameters
@@ -369,11 +323,12 @@ def get_reachids(reachjson,index_to_run):
         index=int(os.environ.get("AWS_BATCH_JOB_ARRAY_INDEX"))
     else:
         index=index_to_run
-  
+
     with open(reachjson) as jsonfile:
         data = json.load(jsonfile)
 
     return data[index]
+
 
 def load_sword(reachid, sworddir, sword_version):
     cont_map = {
@@ -392,6 +347,7 @@ def load_sword(reachid, sworddir, sword_version):
     sword = netCDF4.Dataset(sword_path)
 
     return sword
+
 
 def main():
     """Main method to execute Input class methods."""
@@ -417,11 +373,11 @@ def main():
 
     # find node ids for reach, also close sos
     nodeids = get_reach_nodes(sword, reachid)
+    sword.close()
 
     # Pull observation data using hydrocron
-
     reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
-
+    logging.info("Located %s timesteps.", reach_df.shape[0])
 
     # parse hydrocron returns
     output_data = prep_output(reach_df, node_df_list)
@@ -430,7 +386,7 @@ def main():
     HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data,area_fit_dict = area_fit_dict, output_dir = outdir)
     
     end = datetime.now()
-    print(f"Total execution time: {end - start}.")
+    logging.info("Total execution time: %s", end - start)
 
 
 if __name__ == "__main__":
