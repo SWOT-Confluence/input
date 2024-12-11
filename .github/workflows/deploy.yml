@@ -24,7 +24,7 @@ on:
 
 # Environment variables
 env:
-  APP_NAME_ENV: 'setfinder'
+  APP_NAME_ENV: 'input'
 
 jobs:
   build:
