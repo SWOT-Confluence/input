@@ -37,7 +37,7 @@ NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
     'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
 FLOAT_FILL = -999999999999
 INT_FILL = -999
-SSM_CLIENT = boto3.session.Session().client("ssm")
+
 RETRY_COUNT = 10    # number of retries after failure
 RANDOM_SLEEP = 30    # seconds
 
@@ -216,9 +216,11 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     
     # retrieve API key
     try:
+        SSM_CLIENT = boto3.session.Session().client("ssm")
         api_key = SSM_CLIENT.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)["Parameter"]["Value"]
         logging.info("Querying with Hydrocron API key.")
-    except botocore.exceptions.ClientError as error:
+    # except botocore.exceptions.ClientError as error:
+    except Exception as error :
         api_key = ""
         logging.error(error)
         logging.info("Not querying with Hydrocron API key.")
