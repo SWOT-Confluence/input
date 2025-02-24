@@ -176,7 +176,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
 
         # check for errors
         elif 'error' in data.keys():
-            if '4' in data['error']:
+            if '400' in data['error']:
                 logging.error('Invalid request made to Hydrocron: %s. Exiting...', data['error'])
                 sys.exit(1)
             retry_cnt += 1
