@@ -123,7 +123,7 @@ jobs:
       # Build and push Docker container image
       - name: Pull and Push to AWS ECR
         run: |
-          docker pull ghcr.io/swot-confluence/${APP_NAME_ENV}:latest
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       # Set up Terraform
