@@ -121,9 +121,9 @@ jobs:
         run: deploy/deploy-ecr.sh $REGISTRY $REPOSITORY
 
       # Build and push Docker container image
-      - name: Build and Push to AWS ECR
+      - name: Pull and Push to AWS ECR
         run: |
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker pull ghcr.io/swot-confluence/${APP_NAME_ENV}:latest
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       # Set up Terraform
