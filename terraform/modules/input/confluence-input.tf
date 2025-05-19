@@ -1,7 +1,10 @@
 # Job Definition
 resource "aws_batch_job_definition" "generate_batch_jd_input" {
-  name                  = "${var.prefix}-input"
-  type                  = "container"
+  name = "${var.prefix}-input"
+  type = "container"
+  platform_capabilities = ["FARGATE"]
+  propagate_tags = true
+  tags = { "job_definition" : "${var.prefix}-input" }
 
   container_properties = jsonencode({
     image = "${local.account_id}.dkr.ecr.us-west-2.amazonaws.com/${var.prefix}-input:${var.image_tag}"
@@ -36,18 +39,14 @@ resource "aws_batch_job_definition" "generate_batch_jd_input" {
       }
     }]
   })
-
-  platform_capabilities = ["FARGATE"]
-  propagate_tags        = true
-  tags                  = { "job_definition" : "${var.prefix}-input" }
 }
 
 # API key parameter
 resource "aws_ssm_parameter" "hydrocron_key_parameter" {
-  name        = "${var.prefix}-hydrocron-key"
+  name = "${var.prefix}-hydrocron-key"
   description = "Hydrocron confluence API key"
-  type        = "SecureString"
-  value       = var.api_key
+  type = "SecureString"
+  value = var.api_key
 }
 
 # Log group
