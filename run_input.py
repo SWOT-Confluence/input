@@ -73,7 +73,7 @@ def create_args():
                             "--time",
                             type=str,
                             help="Time parameter to search",
-                            default="&start_time=2020-09-01T00:00:00Z&end_time=2025-10-30T00:00:00Z&")
+                            default="&start_time=2020-09-01T00:00:00Z&end_time=2026-12-30T00:00:00Z&")
     arg_parser.add_argument("-v",
                             "--swordversion",
                             type=str,
@@ -84,6 +84,13 @@ def create_args():
                             type=str,
                             help="Prefix for AWS environment.",
                             default="")
+
+    arg_parser.add_argument("-c",
+                            "--collection",
+                            type=str,
+                            help="Collection/product to use",
+                            default="SWOT_L2_HR_RiverSP_2.0")
+
     return arg_parser
 
 
@@ -136,10 +143,12 @@ def get_reach_nodes(rootgrp, reach_id):
         for y in node_ids_indexes[0]:
             node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
             all_nodes.append(node_id)
-    return list(set(all_nodes))
+    nodeids = list(set(all_nodes))
+    nodeids.sort()
+    return nodeids
 
 
-def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_key):
+def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, collection_name, api_key):
     """Preform Hydrocron API request."""
 
     fieldstrs = ','.join(fields)
@@ -149,7 +158,8 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
         "output": "csv",
         "start_time": date_range.split("&")[1].split("=")[1],
         "end_time": date_range.split("&")[2].split("=")[1],
-        "fields": fieldstrs
+        "fields": fieldstrs,
+        "collection_name": collection_name
     }
     headers = {}
     if api_key:
@@ -209,7 +219,7 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, api_ke
     return df
 
 
-def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
+def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, prefix):
     """Retrieve reach and node data from Hydrocron."""
 
     logging.info("Processing reach ID: %s", reachid)
@@ -225,7 +235,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
         logging.error(error)
         logging.info("Not querying with Hydrocron API key.")
 
-    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range, api_key)
+    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range, collection_name, api_key)
     reach_df['datetime'] = reach_df['time_str'].apply(
         lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
     )
@@ -249,7 +259,7 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, prefix):
     for nodeid in nodeids:
 
         logging.info("Processing node ID: %s", nodeid)
-        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, api_key)
+        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, collection_name, api_key)
 
         # Convert datetime strings to datetime objects
         node_df['datetime'] = node_df['time_str'].apply(
@@ -366,6 +376,7 @@ def main():
     date_range = args.time
     swordversion = args.swordversion
     prefix = args.prefix
+    collection_name = args.collection
 
     # pull sword and find all reach data
     reachid = get_reachids(reachjson,index_to_run)['reach_id']
@@ -378,7 +389,7 @@ def main():
     sword.close()
 
     # Pull observation data using hydrocron
-    reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, prefix)
+    reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, prefix)
     logging.info("Located %s timesteps.", reach_df.shape[0])
 
     # parse hydrocron returns
