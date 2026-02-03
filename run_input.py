@@ -78,7 +78,7 @@ def create_args():
                             "--swordversion",
                             type=str,
                             help="Version of sword we are using",
-                            default="16")
+                            default="17b")
     arg_parser.add_argument("-p",
                             "--prefix",
                             type=str,
@@ -89,7 +89,7 @@ def create_args():
                             "--collection",
                             type=str,
                             help="Collection/product to use",
-                            default="SWOT_L2_HR_RiverSP_2.0")
+                            default="SWOT_L2_HR_RiverSP_D")
 
     return arg_parser
 
