@@ -14,6 +14,10 @@ def convert_to_int_with_fill(arr, fill_value):
     # Convert to integers
     return arr.astype(int)
 
+def check_file_exists(output_dir, swot_id):
+     filepath = os.path.join(output_dir, str(swot_id)+'_SWOT.nc')
+     return os.path.exists(filepath)
+
 # HCWrite.write_data(swot_id=reachid, node_ids=nodeids, reach_df = reach_df, node_df_list = node_df_list, output_dir = '.')
 def write_data(swot_id, node_ids, data, area_fit_dict, output_dir):
     """Writes node and reach level SWOT data to NetCDF format.

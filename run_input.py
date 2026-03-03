@@ -1,17 +1,14 @@
-"""Script to run Input module.
-"""
+"""Script to run Input module."""
 
 # Standard imports
 import argparse
 import boto3
-import botocore
 from datetime import datetime
 import json
 import logging
 import pandas as pd
 import requests
 import numpy as np
-import glob
 import netCDF4
 import os
 import numpy as np
@@ -28,18 +25,45 @@ from input.extract.HWS_IO import HWS_IO
 
 
 # global variables
-BASE_URL= 'https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?'
-REACH_FIELDS = ['pass_id','cycle_id','d_x_area', 'd_x_area_u', 'dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_nod', 'obs_frac_n', 
-    'partial_f', 'reach_id', 'reach_q', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u' , 'time', 'time_str', 'width', 
-    'width_u', 'wse', 'wse_u','wse_r_u', 'xovr_cal_q', 'xtrk_dist', 'p_length', 'p_width', 'reach_q_b']
-NODE_FIELDS = ['dark_frac', 'ice_clim_f', 'ice_dyn_f', 'n_good_pix', 'node_id',
-            'node_q', 'node_q_b', 'p_width','reach_id','time', 'time_str', 'width', 
-    'width_u', 'wse', 'wse_u', 'wse_r_u','xovr_cal_q', 'xtrk_dist']
+BASE_URL = "https://soto.podaac.earthdatacloud.nasa.gov/hydrocron/v1/timeseries?"
+
+# fmt: off
+REACH_FIELDS = [
+    "pass_id", "cycle_id", "d_x_area", "d_x_area_u", "dark_frac", "ice_clim_f", 
+    "ice_dyn_f", "n_good_nod", "obs_frac_n", "partial_f", "reach_id", "reach_q", 
+    "slope", "slope2", "slope2_r_u", "slope_r_u", "slope2_u", "slope_u", "time", 
+    "time_str", "width", "width_u", "wse", "wse_u", "wse_r_u", "xovr_cal_q", 
+    "xtrk_dist", "p_length", "p_width", "reach_q_b"
+]
+NODE_FIELDS = [
+    "dark_frac", "ice_clim_f", "ice_dyn_f", "n_good_pix", "node_id", "node_q", 
+    "node_q_b", "p_width", "reach_id", "time", "time_str", "width", "width_u", 
+    "wse", "wse_u", "wse_r_u", "xovr_cal_q", "xtrk_dist"
+]
+EXTRA_FIELDS = [
+    "d_x_area", "d_x_area_u", "slope", "slope2", "slope2_r_u", "slope_r_u", 
+    "slope2_u", "slope_u", "cycle_pass"
+]
+COLS_TO_CONVERT = ["node_q", "ice_clim_f", "ice_dyn_f", "node_q_b", "n_good_pix", "xovr_cal_q"]
+# fmt: on
+
 FLOAT_FILL = -999999999999
 INT_FILL = -999
 
-RETRY_COUNT = 10    # number of retries after failure
-RANDOM_SLEEP = 30    # seconds
+CONT_MAP = {
+    "1": "af",
+    "4": "as",
+    "3": "as",
+    "2": "eu",
+    "7": "na",
+    "8": "na",
+    "9": "na",
+    "5": "oc",
+    "6": "sa",
+}
+
+RETRY_COUNT = 10  # number of retries after failure
+RANDOM_SLEEP = 30  # seconds
 
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
@@ -50,46 +74,71 @@ def create_args():
     """Create and return argparser with arguments."""
 
     arg_parser = argparse.ArgumentParser(description="Retrieve a list of S3 URIs")
-    arg_parser.add_argument("-i",
-                            "--index",
-                            type=int,
-                            help="Index to specify input data to execute on, value of -235 indicates AWS selection")
-    arg_parser.add_argument("-r",
-                            "--reachesjson",
-                            type=str,
-                            help="Path to the reaches.json",
-                            default="/mnt/data/reaches_of_interest.json")
-    arg_parser.add_argument("-o",
-                            "--outdir",
-                            type=str,
-                            help="Directory to output data to",
-                            default="/mnt/data/swot/")
-    arg_parser.add_argument("-s",
-                            "--sworddir",
-                            type=str,
-                            help="Directory containing SWORD files",
-                            default="/mnt/data/sword/")
-    arg_parser.add_argument("-t",
-                            "--time",
-                            type=str,
-                            help="Time parameter to search",
-                            default="&start_time=2020-09-01T00:00:00Z&end_time=2026-12-30T00:00:00Z&")
-    arg_parser.add_argument("-v",
-                            "--swordversion",
-                            type=str,
-                            help="Version of sword we are using",
-                            default="17b")
-    arg_parser.add_argument("-p",
-                            "--prefix",
-                            type=str,
-                            help="Prefix for AWS environment.",
-                            default="")
-
-    arg_parser.add_argument("-c",
-                            "--collection",
-                            type=str,
-                            help="Collection/product to use",
-                            default="SWOT_L2_HR_RiverSP_D")
+    arg_parser.add_argument(
+        "-i",
+        "--index",
+        type=int,
+        help="Index to specify input data to execute on, value of -235 indicates AWS selection",
+    )
+    arg_parser.add_argument(
+        "-a",
+        "--range",
+        type=int,
+        help="Number of reaches to step through starting from the index.",
+        default=1,
+    )
+    arg_parser.add_argument(
+        "-k",
+        "--skip",
+        action="store_true",
+        help="Skip processing if the NetCDF file for a reach already exists.",
+        default=False,
+    )
+    arg_parser.add_argument(
+        "-r",
+        "--reachesjson",
+        type=str,
+        help="Path to the reaches.json",
+        default="/mnt/data/reaches_of_interest.json",
+    )
+    arg_parser.add_argument(
+        "-o",
+        "--outdir",
+        type=str,
+        help="Directory to output data to",
+        default="/mnt/data/swot/",
+    )
+    arg_parser.add_argument(
+        "-s",
+        "--sworddir",
+        type=str,
+        help="Directory containing SWORD files",
+        default="/mnt/data/sword/",
+    )
+    arg_parser.add_argument(
+        "-t",
+        "--time",
+        type=str,
+        help="Time parameter to search",
+        default="&start_time=2020-09-01T00:00:00Z&end_time=2026-12-30T00:00:00Z&",
+    )
+    arg_parser.add_argument(
+        "-v",
+        "--swordversion",
+        type=str,
+        help="Version of sword we are using",
+        default="17b",
+    )
+    arg_parser.add_argument(
+        "-p", "--prefix", type=str, help="Prefix for AWS environment.", default=""
+    )
+    arg_parser.add_argument(
+        "-c",
+        "--collection",
+        type=str,
+        help="Collection/product to use",
+        default="SWOT_L2_HR_RiverSP_D",
+    )
 
     return arg_parser
 
@@ -114,6 +163,7 @@ def get_exe_data(index, json_file):
     return data
 
 
+# TODO: could be much faster with pd.merge_asof using dates as keys
 def find_closest_date(row, df):
     """Function to find the closest datetime."""
 
@@ -128,8 +178,10 @@ def find_closest_date(row, df):
 
     if df_filtered.empty:
         return out_df
-    
-    out_df = df_filtered.iloc[(df_filtered['datetime'] - row['datetime']).abs().argsort()[:1]].iloc[0]
+
+    out_df = df_filtered.iloc[
+        (df_filtered["datetime"] - row["datetime"]).abs().argsort()[:1]
+    ].iloc[0]
 
     return out_df
 
@@ -138,17 +190,48 @@ def get_reach_nodes(rootgrp, reach_id):
     """Get node ids from SWORD."""
 
     all_nodes = []
-    node_ids_indexes = np.where(rootgrp.groups['nodes'].variables['reach_id'][:].data.astype('U') == str(reach_id))
-    if len(node_ids_indexes[0])!=0:
+    node_ids_indexes = np.where(
+        rootgrp.groups["nodes"].variables["reach_id"][:].data.astype("U")
+        == str(reach_id)
+    )
+    if len(node_ids_indexes[0]) != 0:
         for y in node_ids_indexes[0]:
-            node_id = str(rootgrp.groups['nodes'].variables['node_id'][y].data.astype('U'))
+            node_id = str(
+                rootgrp.groups["nodes"].variables["node_id"][y].data.astype("U")
+            )
             all_nodes.append(node_id)
     nodeids = list(set(all_nodes))
     nodeids.sort()
     return nodeids
 
 
-def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, collection_name, api_key):
+def get_api_key(prefix):
+    creds_file = os.path.expanduser("~/.hydrocron/credentials")
+    if os.path.exists(creds_file):
+        try:
+            with open(creds_file) as f:
+                creds = json.load(f)
+            key = creds["api_key"] # Try to access
+            logging.info("Using API key from credentials file: %s", creds_file)
+            return key
+        except (KeyError, json.JSONDecodeError) as e:
+            # File exists but something is really wrong.
+            logging.error("Failed to parse credentials file %s: %s", creds_file, e)
+            return ""
+
+    try:
+        ssm = boto3.client("ssm")
+        return ssm.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)[
+            "Parameter"
+        ]["Value"]
+    except Exception as e:
+        logging.error(f"SSM Error: {e}")
+        return ""
+
+
+def pull_via_hydrocron(
+    reach_or_node, id_of_interest, fields, date_range, collection_name, api_key
+):
     """Preform Hydrocron API request."""
 
     fieldstrs = ','.join(fields)
@@ -159,89 +242,105 @@ def pull_via_hydrocron(reach_or_node, id_of_interest, fields, date_range, collec
         "start_time": date_range.split("&")[1].split("=")[1],
         "end_time": date_range.split("&")[2].split("=")[1],
         "fields": fieldstrs,
-        "collection_name": collection_name
+        "collection_name": collection_name,
     }
     headers = {}
     if api_key:
         headers["x-hydrocron-key"] = api_key
-    logging.info("Query parameters: %s", params)
+    # logging.info("Query parameters: %s", params)
 
-    retry_cnt = 0
-    while retry_cnt < RETRY_COUNT:
+    df = None # default
+    for _ in range(RETRY_COUNT):
         try:
-            data = requests.get(url=BASE_URL, headers=headers, params=params)
-            logging.info('Hydrocron query: %s', data.url)
-            data = data.json()
-        except Exception as e:
-            logging.info('Exception thrown for Hydrocron query: %s. Retrying...', e)
-            retry_cnt += 1
+            response = requests.get(url=BASE_URL, headers=headers, params=params)
+            # logging.info(f"Hydrocron query: {response.url}")
+            response.raise_for_status()  # raises HTTPError for 4xx/5xx
+            data = response.json()
+
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code
+
+            # Attempt to parse the error message from the response body
+            try:
+                error_payload = e.response.json()
+                error_msg = error_payload.get("error", "")
+            except (ValueError, AttributeError):
+                error_msg = ""
+
+            if status == 429:
+                logging.error("Rate limit hit (HTTP 429). Exiting...")
+                sys.exit(1)
+            elif 400 <= status < 500:
+                if "not found" in error_msg.lower():
+                    # "error" : "400: Results with the specified Feature ID 11545300011 were not found"
+                    logging.warning(f"Feature ID {id_of_interest} has no data in {collection_name}. Skipping...")
+                    return # returns to reach_id loop to check next reach_id for data.
+                
+                logging.error(f"Client error, will not retry. Exiting... \n{status = }\n{error_payload = }")
+                return
+            else:
+                logging.warning(f"Server error {status}, retrying...")
+                time.sleep(random.uniform(1, RANDOM_SLEEP))
+                continue
+
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                requests.exceptions.JSONDecodeError) as e:
+            logging.warning(f"Request failed: {e}. Retrying...")
             time.sleep(random.uniform(1, RANDOM_SLEEP))
             continue
 
-        # check if limit has been exceeded
-        if 'message' in data.keys():
-            if data['message'] == 'Limit Exceeded':
-                logging.error("Hydrocron request limit reached for API key. Exiting...")
-                sys.exit(1)
+        except Exception as e:
+            logging.warning(f"Unexpected exception: {e}. Retrying...")
+            time.sleep(random.uniform(1, RANDOM_SLEEP))
+            continue
 
-        # check for errors
-        elif 'error' in data.keys():
-            if '400' in data['error']:
-                logging.error('Invalid request made to Hydrocron: %s. Exiting...', data['error'])
-                sys.exit(1)
-            retry_cnt += 1
-            logging.info('Error pulling data: %s. Retrying...', data['error'])
+        # HTTP was 200, now validate the JSON payload
+        if 'message' in data:
+            logging.error(f"Hydrocron returned unexpected message: {data['message']}. Exiting...")
+            return
+
+        elif 'error' in data:
+            logging.warning(f"Hydrocron error in payload: {data['error']}. Retrying...")
             time.sleep(random.uniform(1, RANDOM_SLEEP))
 
-        # read in data
-        elif 'status' in data.keys():
-            if data['status']=='200 OK':
-                df = data['results']['csv']
-                df = pd.read_csv(StringIO(df))
-                retry_cnt = 999
-
-            else:
-                retry_cnt += 1
-                logging.info('Data status not 200: %s', data)
+        elif data.get('status') == '200 OK':
+            try:
+                df = pd.read_csv(StringIO(data['results']['csv']))
+                # Success! 
+                break
+            except Exception as e:
+                logging.warning(f"Exception while parsing the json data: {e}")
                 time.sleep(random.uniform(1, RANDOM_SLEEP))
 
         else:
-            retry_cnt += 1
-            logging.info('Unable to retrieve data, Hydrcron response: %s', data)
+            logging.warning(f"Unrecognized response structure: {data}. Retrying...")
             time.sleep(random.uniform(1, RANDOM_SLEEP))
-
-    if retry_cnt != 999:
-        logging.info('Failed to pull %s - %s', reach_or_node, id_of_interest)
-        if reach_or_node == "Reach":
-            logging.error("Failed to pull reach. Exiting...")
-            sys.exit(1)
 
     return df
 
 
-def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, prefix):
+def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, api_key):
     """Retrieve reach and node data from Hydrocron."""
 
     logging.info("Processing reach ID: %s", reachid)
-    
-    # retrieve API key
-    try:
-        SSM_CLIENT = boto3.session.Session().client("ssm")
-        api_key = SSM_CLIENT.get_parameter(Name=f"{prefix}-hydrocron-key", WithDecryption=True)["Parameter"]["Value"]
-        logging.info("Querying with Hydrocron API key.")
-    # except botocore.exceptions.ClientError as error:
-    except Exception as error :
-        api_key = ""
-        logging.error(error)
-        logging.info("Not querying with Hydrocron API key.")
 
-    reach_df = pull_via_hydrocron('Reach', reachid, REACH_FIELDS, date_range, collection_name, api_key)
-    reach_df['datetime'] = reach_df['time_str'].apply(
-        lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
+    # pull reach data
+    reach_df = pull_via_hydrocron(
+        "Reach", reachid, REACH_FIELDS, date_range, collection_name, api_key
     )
-    reach_df['cycle_pass'] = reach_df['cycle_id'].astype(str) + '_' + reach_df['pass_id'].astype(str)
+    if reach_df is None:
+        # If we have no reach data, we just return
+        return 
+    
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    reach_df["datetime"] = pd.to_datetime(reach_df["time_str"], format=fmt, errors="coerce")
+    reach_df["cycle_pass"] = (
+        reach_df["cycle_id"].astype(str) + "_" + reach_df["pass_id"].astype(str)
+    )
+    reach_df["date"] = reach_df["datetime"].dt.date
 
-    area_fit_dict = False
+    # HWS calcs for reaches
     if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
         logging.info('Calculating HWS...')
         IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
@@ -250,25 +349,25 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, p
         if len(hws_obj.dAall) == 1:
             hws_obj.dAall = hws_obj.dAall[0]
         reach_df["d_x_area"] = hws_obj.dAall
-        try:
-            area_fit_dict = hws_obj.area_fit
-        except:
-            area_fit_dict = False
+        area_fit_dict = getattr(hws_obj, "area_fit", False)
 
+    # Pull node data
     node_df_list = []
     for nodeid in nodeids:
 
         logging.info("Processing node ID: %s", nodeid)
-        node_df = pull_via_hydrocron('Node', nodeid, NODE_FIELDS, date_range, collection_name, api_key)
+        node_df = pull_via_hydrocron(
+            "Node", nodeid, NODE_FIELDS, date_range, collection_name, api_key
+        )
+        if node_df is None:
+            # If we have missing node data, continue trying the others.
+            continue
 
         # Convert datetime strings to datetime objects
-        node_df['datetime'] = node_df['time_str'].apply(
-            lambda x: pd.to_datetime(x) if x != "no_data" else pd.NaT
-        )
+        node_df["datetime"] = pd.to_datetime(node_df["time_str"], format=fmt, errors="coerce")
 
         # Extract dates
-        reach_df['date'] = reach_df['datetime'].dt.date
-        node_df['date'] = node_df['datetime'].dt.date
+        node_df["date"] = node_df["datetime"].dt.date
 
         # Find the closest datetimes for each date in reach_df
         closest_data = reach_df.apply(find_closest_date, df=node_df, axis=1)
@@ -279,17 +378,18 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, p
             closest_data = pd.DataFrame(columns = list(node_df.columns))
 
         # Combine the original time_str with the closest data from node_df
-        extra_fields = ['d_x_area', 'd_x_area_u', 'slope', 'slope2','slope2_r_u','slope_r_u','slope2_u', 'slope_u', 'cycle_pass']
-        
-        try:
-            final_df = pd.concat([reach_df[['time_str']], closest_data.reset_index(drop=False)[NODE_FIELDS]], axis=1)
-        except:
-            raise
-        final_df[extra_fields] = reach_df[extra_fields]
+        final_df = pd.concat(
+            [reach_df[["time_str"]], closest_data.reset_index(drop=False)[NODE_FIELDS]],
+            axis=1,
+        )
+        final_df[EXTRA_FIELDS] = reach_df[EXTRA_FIELDS]
 
         # node_q wrong datatype
-        cols_to_convert = ['node_q', 'ice_clim_f', 'ice_dyn_f', 'node_q_b', 'n_good_pix', 'xovr_cal_q']
-        final_df[cols_to_convert] = final_df[cols_to_convert].apply(pd.to_numeric, downcast='integer').fillna(INT_FILL)
+        final_df[COLS_TO_CONVERT] = (
+            final_df[COLS_TO_CONVERT]
+            .apply(pd.to_numeric, downcast="integer")
+            .fillna(INT_FILL)
+        )
 
         node_df_list.append(final_df)
 
@@ -316,7 +416,16 @@ def prep_output(reach_df, node_df_list):
     return output_data
 
 
-def get_reachids(reachjson, index_to_run):
+def get_reaches_by_continent(reach_ids):
+    """Groups reach IDs by continent to minimize file I/O."""
+    grouped = {}
+    for rid in reach_ids:
+        cont = CONT_MAP[str(rid)[0]]
+        grouped.setdefault(cont, []).append(rid)
+    return grouped
+
+
+def get_reachids(reachjson: str, index_to_run: int, index_range: int) -> list[int]:
     """Extract and return a list of reach identifiers from json file.
     
     Parameters
@@ -339,26 +448,8 @@ def get_reachids(reachjson, index_to_run):
     with open(reachjson) as jsonfile:
         data = json.load(jsonfile)
 
-    return data[index]
-
-
-def load_sword(reachid, sworddir, sword_version):
-    cont_map = {
-        '1':'af',
-        '4':'as',
-        '3':'as',
-        '2':'eu',
-        '7':'na',
-        '8':'na',
-        '9':'na',
-        '5':'oc',
-        '6':'sa'
-    }
-
-    sword_path = os.path.join(sworddir, cont_map[str(reachid)[0]] + f'_sword_v{sword_version}.nc')
-    sword = netCDF4.Dataset(sword_path)
-
-    return sword
+    reach_dict = data[index : (index + index_range)]
+    return [d["reach_id"] for d in reach_dict]
 
 
 def main():
@@ -370,6 +461,8 @@ def main():
     args = arg_parser.parse_args()
 
     index_to_run = args.index
+    index_range = args.range
+    skip = args.skip
     reachjson = args.reachesjson
     outdir = args.outdir
     sworddir = args.sworddir
@@ -378,26 +471,45 @@ def main():
     prefix = args.prefix
     collection_name = args.collection
 
-    # pull sword and find all reach data
-    reachid = get_reachids(reachjson,index_to_run)['reach_id']
+    all_reach_ids = get_reachids(reachjson, index_to_run, index_range)
+    if skip:
+        all_reach_ids = [r for r in all_reach_ids if not HCWrite.check_file_exists(outdir, r)]
+        if len(all_reach_ids) == 0:
+            logging.info(
+                "All reaches already downloaded to input dir. Remove the skip argument if you want to force redownload."
+            )
+            sys.exit(0)
 
-    # map reach id to sword and load sword
-    sword = load_sword(reachid, sworddir, swordversion)
+    # not confident that batches will be grouped by continent.
+    continent_groups = get_reaches_by_continent(all_reach_ids)
 
-    # find node ids for reach, also close sos
-    nodeids = get_reach_nodes(sword, reachid)
-    sword.close()
+    api_key = get_api_key(prefix)
 
-    # Pull observation data using hydrocron
-    reach_df, node_df_list, area_fit_dict = process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, prefix)
-    logging.info("Located %s timesteps.", reach_df.shape[0])
+    for cont, cont_reach_ids in continent_groups.items():
+        sword_path = os.path.join(sworddir, f"{cont}_sword_v{swordversion}.nc")
+        with netCDF4.Dataset(sword_path) as sword:
+            for reach_id in cont_reach_ids:
+                nodeids = get_reach_nodes(sword, reach_id)
 
-    # parse hydrocron returns
-    output_data = prep_output(reach_df, node_df_list)
+                reach_data = process_reach_via_hydrocron(reach_id, nodeids, date_range, collection_name, api_key)
 
-    # write out parsed data to timeseries file
-    HCWrite.write_data(swot_id=reachid, node_ids=nodeids, data = output_data,area_fit_dict = area_fit_dict, output_dir = outdir)
-    
+                if reach_data is None:
+                    logging.info(f"No data returned for {reach_id = }, moving on.")
+                    continue
+                else:
+                    reach_df, node_df_list, area_fit_dict = reach_data
+
+                logging.info("Located %s timesteps.", reach_df.shape[0])
+
+                output_data = prep_output(reach_df, node_df_list)
+                HCWrite.write_data(
+                    swot_id=reach_id,
+                    node_ids=nodeids,
+                    data=output_data,
+                    area_fit_dict=area_fit_dict,
+                    output_dir=outdir,
+                )
+
     end = datetime.now()
     logging.info("Total execution time: %s", end - start)
 
