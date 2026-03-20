@@ -587,6 +587,13 @@ class CalculateHWS:
         dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
 
         area_fit['med_flow_area']=dA_Hbar
+        #Check fit for errors
+        status=self.do_area_fit_checks(area_fit)
+        if status:
+            Print("fit requires modification")
+            area_fit=self.correct_fit_params(area_fit)
+        else:
+            Print("fit does not require modification")
 
         #4.6 save fit data
         self.area_fit=area_fit
@@ -605,6 +612,47 @@ class CalculateHWS:
         init_params_outer=[WSEmin+WSErange/3, WSEmin+2*WSErange/3]
 
         return init_params_outer,WSEmin,WSErange
+
+    def do_area_fit_checks(self,area_fits):
+        wse_valid_min=-1500
+        wse_valid_max=150000
+        Status=False
+        # test 1
+        if any(area_fits['h_break']<wse_valid_min):
+            print('failed test 1 with invalid values in h_break; h_break=',area_fits['h_break'])
+            Status=True
+        if any(area_fits['h_break']>wse_valid_max):
+            print('failed test 1 with invalid values in h_break; h_break=',area_fits['h_break'])
+            Status=True        
+        # test 2
+        if float(area_fits['h_break'][1]) < float(area_fits['h_break'][0]) or \
+        float(area_fits['h_break'][2]) < float(area_fits['h_break'][1]) or \
+        float(area_fits['h_break'][3]) < float(area_fits['h_break'][2]) :
+            print('failed test 2: non-monotonic; h_break=',area_fits['h_break'])
+            Status=True
+        
+        # test 3
+        if any(np.isnan(area_fits['h_break'])):
+            print('failed test 3 with nan values in h_break; h_break=',area_fits['h_break'])
+            Status=True
+        return Status
+    def correct_fit_params(self,area_fit)
+        #set h_break to evenly spaced values between valid min and max
+        wse_valid_min=-1500
+        wse_valid_max=150000
+        hb=area_fits['h_break']
+        hb_=np.linspace(wse_valid_min,wse_valid_max,len(hb))
+        area_fits['h_break']=hb_
+        #set slopes to zero
+        slopes=area_fits['fit_coeffs'][1,:]
+        slopes_=np.linspace(0,np.nanmean(0,len(slopes))
+        area_fits['fit_coeffs'][1,:]=slopes_
+        area_fits['fit_coeffs'][0,:]= intercepts_
+        #set intercepts to uniform mean value
+        incp=area_fits['fit_coeffs'][0,:]
+        incp_=np.linspace(np.nanmean(incp),np.nanmean(incp),len(incp))
+        area_fits['fit_coeffs'][0,:]= incp_
+        return area_fit
 
 def ChooseInitParamsInner(h,w):
     #function to choose initial parameters describing SWOT-like height-width fit
