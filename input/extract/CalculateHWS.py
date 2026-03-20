@@ -14,12 +14,7 @@ from scipy import stats,optimize
 # import matplotlib.pyplot as plt
 import copy
 import warnings
-import logging
 
-logging.getLogger().setLevel(logging.INFO)
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S',
-                    level=logging.INFO)
 
 class CalculateHWS:    
         
@@ -595,8 +590,7 @@ class CalculateHWS:
         area_fit['med_flow_area']=dA_Hbar
         #Check fit for errors
         status=self.do_area_fit_checks(area_fit)
-        logging.info('status')
-        logging.info(status)
+        
         if status:
             Print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
@@ -622,7 +616,7 @@ class CalculateHWS:
         return init_params_outer,WSEmin,WSErange
 
     def do_area_fit_checks(self,area_fits):
-        logging.info('went into check')
+       
         wse_valid_min=-1500
         wse_valid_max=150000
         Status=False
@@ -646,7 +640,7 @@ class CalculateHWS:
             Status=True
         return Status
     def correct_fit_params(self,area_fit)
-        logging.info('went into fix')
+        
         #set h_break to evenly spaced values between valid min and max
         wse_valid_min=-1500
         wse_valid_max=150000
