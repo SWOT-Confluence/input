@@ -352,7 +352,7 @@ class CalculateHWS:
 
     def CalcAreaFits(self,r=0):
 
-        warnings.filterwarnings("ignore", message="delta_grad == 0.0. Check if the approximated function is linear.")
+        #warnings.filterwarnings("ignore", message="delta_grad == 0.0. Check if the approximated function is linear.")
 
         # this computes the SWOT-like height-width fit
 
