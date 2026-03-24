@@ -342,8 +342,8 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, a
 
     # HWS calcs for reaches
     if np.all((reach_df["d_x_area"] == FLOAT_FILL)):
-        logging.info('Calculating HWS...')
-        logging.info('potato...')
+        logging.info('Calculating HWS!...')
+        
         IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
         D=DomainHWS(IO.ObsData)
         hws_obj = CalculateHWS(D, IO.ObsData)

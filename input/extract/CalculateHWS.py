@@ -215,32 +215,52 @@ class CalculateHWS:
                  self.w[0,:]=what[0,:]
 
             
-            self.area_fit['h_break'][0]=np.min(hhat)
-            self.area_fit['h_break'][3]=np.max(hhat)
+            self.area_fit['h_break'][0]=np.nanmin(hhat)
+            self.area_fit['h_break'][3]=np.nanmax(hhat)
                 
 
     def MapPointToHypsometricCurve(self,h,w):
-        sds=[0,1,2]
+        # sds=[0,1,2]
 
-        hhat=np.nan
-        what=np.nan
+        # hhat=np.nan
+        # what=np.nan
 
-        for sd in sds:
-            hhatsd,whatsd = self.MapPointToSubDomain(sd,h,w)
+        # for sd in sds:
+        #     hhatsd,whatsd = self.MapPointToSubDomain(sd,h,w)
 
-            #print('for subdomain',sd,'mapped point=',hhatsd,whatsd)
+        #     #print('for subdomain',sd,'mapped point=',hhatsd,whatsd)
 
-            DataInSubdomain = (hhatsd >= self.area_fit['h_break'][sd] and hhatsd < self.area_fit['h_break'][sd+1] )
-            DataValidExtrapLow = (sd ==0 and hhatsd < self.area_fit['h_break'][0])
-            DataValidExtrapHi = (sd == 2 and hhatsd > self.area_fit['h_break'][2])
-            DataValidExtrap = DataValidExtrapHi or DataValidExtrapLow
+        #     DataInSubdomain = (hhatsd >= self.area_fit['h_break'][sd] and hhatsd < self.area_fit['h_break'][sd+1] )
+        #     DataValidExtrapLow = (sd ==0 and hhatsd < self.area_fit['h_break'][0])
+        #     DataValidExtrapHi = (sd == 2 and hhatsd > self.area_fit['h_break'][2])
+        #     DataValidExtrap = DataValidExtrapHi or DataValidExtrapLow
 
-            if DataInSubdomain or DataValidExtrap:
-                hhat=hhatsd
-                what=whatsd
+        #     if DataInSubdomain or DataValidExtrap:
+        #         hhat=hhatsd
+        #         what=whatsd
 
-        if np.isnan(hhat) and self.Verbose:
-            print('data point did not map to a valid sub-domain...')
+        # if np.isnan(hhat) and self.Verbose:
+        #     print('data point did not map to a valid sub-domain...')
+        # Find closest breakpoint to h
+        close_break = np.argmin(np.abs(self.area_fit['h_break'] - h))
+
+        # If hhat is beyond the maximum observed h, map point to final breakpoint
+        if close_break == 3:
+
+            # Retrieve final region fit
+            p0 = self.area_fit['fit_coeffs'][1, close_break-1, 0]  # intercept
+            p1 = self.area_fit['fit_coeffs'][0, close_break-1, 0]  # slope
+
+        # Get fit from region nearest to h
+        else:
+
+            # Retrieve region fit
+            p0 = self.area_fit['fit_coeffs'][1, close_break, 0]  # intercept
+            p1 = self.area_fit['fit_coeffs'][0, close_break, 0]  # slope
+
+            # Map point to intersection of subdomain fit and breakpoint
+            hhat = self.area_fit['h_break'][close_break]
+            what = p0 + p1 * hhat
 
         return hhat,what
                     
@@ -432,7 +452,26 @@ class CalculateHWS:
              #2 compute a solution where we set the breakpoints at 1/3 of the way through the domain
              ReturnSolution=True
              Jset,p_inner_set=SSE_outer(init_params_outer,self.h[r,igoodhw],self.w[r,igoodhw],ReturnSolution,self.sigh,self.sigw,self.Verbose)
+             # If set fit is implausible (slopes exceed arbitrary value), impose rectangular fit at median width
+             if p_inner_set[0] > 10000 or p_inner_set[2] > 10000 or p_inner_set[4] > 10000:
+                print('Implausible set fit. Implementing rectangular fit.')
 
+                # Find median of widths
+                med_width = np.nanmedian(self.w[r, igoodhw])
+
+                # Set p_inner_set parameters to rectangular fit at median width
+                p_inner_set[0] = 0  # slope R1
+                p_inner_set[1] = med_width  # intercept R1
+                p_inner_set[2] = 0  # slope R2
+                p_inner_set[3] = med_width  # intercept R2
+                p_inner_set[4] = 0  # slope R3
+                p_inner_set[5] = med_width  # intercept R3
+
+                # Enforce rectangular fit due to implausible set fit (Jset = -1)
+                Jset = -1
+                Jsimple = 0
+                # Set placeholder variables for p2
+                p2 = [0, 0, 0]
              #if self.Verbose:
              #    print('height-width fit for set breakpoints')
              #    plot3SDfit(self.h[r,:],self.w[r,:],p_inner_set,init_params_outer)
@@ -492,50 +531,54 @@ class CalculateHWS:
 
         #3.3 compute simple optimal breakpoints, then compute fits
         if self.CalcAreaFitOpt == 3:
-             #3.3.1 optimize breakpoints 
-             def piecewise_linear2(x, x0, y0, x1, k1, k2, k3):
-                 return piecewise(x, [x < x0, ((x>=x0)&(x<x1)), x>=x1], \
-                     [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0, lambda x:k3*x + k2*x1+y0-k2*x0-k3*x1])
-             try:
-                 p2 , e2 = optimize.curve_fit(piecewise_linear2, self.h[r,igoodhw], self.w[r,igoodhw],\
-                        bounds=([lb[0],-inf,lb[0],0,0,0],[ub[0],inf,ub[0],inf,inf,inf]),\
-                        p0=[init_params_outer[0],mean(self.w[r,igoodhw]),init_params_outer[1],0,0,0] )
+             #3.3.1 optimize breakpoints
+             # If rectangular fit imposed during set fit (Jset = -1), don't implement simple fit
+             if Jset != -1: 
+                #3.4.1 optimize breakpoints 
+                def piecewise_linear2(x, x0, y0, x1, k1, k2, k3):
+                        return piecewise(x, [x < x0, ((x>=x0)&(x<x1)), x>=x1],
+                                         [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0, lambda x:k3*x + k2*x1+y0-k2*x0-k3*x1])
 
-                 #this specifies the two WSE breakpoints
-                 params_outer_hat=[p2[0],p2[2]]
-             except:
-                 params_outer_hat,WSEmin,WSErange = self.SetInitParamsOuter(r,igoodhw)
-                 p2 = ['foo','foo','foo']
-                 p2[0] = params_outer_hat[0]
-                 p2[2] = params_outer_hat[1]
+                try:
+                    p2 , e2 = optimize.curve_fit(piecewise_linear2, self.h[r,igoodhw], self.w[r,igoodhw],
+                            bounds=([lb[0],-inf,lb[0],0,0,0],[ub[0],inf,ub[0],inf,inf,inf]),
+                            p0=[init_params_outer[0],mean(self.w[r,igoodhw]),init_params_outer[1],0,0,0] )
+         
+                    #this specifies the two WSE breakpoints
+                    params_outer_hat=[p2[0],p2[2]]
 
-                 
-
-             #3.3.2 compute parameters
-             ReturnSolution=True
-             Jsimple,p_inner_simple=SSE_outer(params_outer_hat,self.h[r,igoodhw],self.w[r,igoodhw],ReturnSolution,self.sigh,self.sigw,self.Verbose)
-
-             #if self.Verbose:
-             #    print('height-width fit for simple optimized breakpoints')
-             #    plot3SDfit(self.h[r,:],self.w[r,:],p_inner_simple,params_outer_hat)
- 
-             #3.3.3 determine whether to use optimal breakpoint solution or equal-spaced breakpoints 
-             #if self.Verbose:
-                  #print('simple objective:',Jsimple)
-                  #print('set objective function:',Jset)
-             if  Jsimple<Jset or p2[0]>p2[2]:
-                     
-                  if self.Verbose:
-                       if p2[0]>p2[2]:
-                            print('p2[0]>p2[2]. p2[0]=',p2[0],'p2[2]=',p2[2])
-                       print('using simple solution')
-                  self.Hbp=params_outer_hat
-                  self.HWparams=p_inner_simple
+                    #3.4.2 compute parameters
+                    ReturnSolution=True
+                    Jsimple,p_inner_simple=SSE_outer(params_outer_hat,self.h[r,igoodhw],self.w[r,igoodhw],ReturnSolution,self.sigh,self.sigw,self.Verbose)
+                    # If simple fit is implausible (slopes exceed arbitrary value), use set breakpoint fit
+                    if p_inner_simple[0] > 10000 or p_inner_simple[2] > 10000 or p_inner_simple[4] > 10000: 
+                        print('Implausible simple fit. Implementing set fit.')
+                         
+                        # Enforce set fit due to implausible simple fit (Jset = -2)
+                        Jset = -2
+                # If optimal parameters can't be found, use set breakpoint fit
+                except RuntimeError as e:
+                    print("Optimization failed, using set breakpoint fit.")
+                    # Enforce set fit due to failed optimization (Jset = -3)
+                    Jset = -3
+                    Jsimple = -2
+                    # Set p2 placeholder values
+                    p2 = [0, 0, 0]
+             if Jset < Jsimple or p2[0] > p2[2]:  
+                if self.Verbose:
+                    if p2[0] > p2[2]:
+                        print('p2[0]>p2[2]. p2[0]=', p2[0], 'p2[2]=', p2[2])
+                    print('using set breakpoint fit')
+                self.Hbp = init_params_outer
+                self.HWparams = p_inner_set
              else:
-                  if self.Verbose:
-                       print('using set breakpoints ')
-                  self.Hbp=init_params_outer
-                  self.HWparams= p_inner_set
+                if self.Verbose:
+                    print('using simple solution ')
+                self.Hbp = params_outer_hat
+                self.HWparams = p_inner_simple     
+    
+                 
+            
 
         # 3.4 use a one sub-domain fit, copied into correct format
         if self.CalcAreaFitOpt == 4:
@@ -570,10 +613,12 @@ class CalculateHWS:
 
         #4.3 set h_break
         area_fit['h_break']=zeros((4,1))
-        area_fit['h_break'][0]=min(self.h[r,:])
+        #area_fit['h_break'][0]=min(self.h[r,:])
+        area_fit['h_break'][0]=np.nanmin(self.h[r,:])
         area_fit['h_break'][1]=self.Hbp[0]
         area_fit['h_break'][2]=self.Hbp[1]
-        area_fit['h_break'][3]=max(self.h[r,:])
+        #area_fit['h_break'][3]=max(self.h[r,:])
+        area_fit['h_break'][3]=np.nanmax(self.h[r,:])
 
         #4.4 set w_break... though i do not think this get used so just initializing for now
         area_fit['w_break']=zeros((4,1))
@@ -592,10 +637,11 @@ class CalculateHWS:
         status=self.do_area_fit_checks(area_fit)
         
         if status:
-            Print("fit requires modification")
+            print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
+            print("fit set to static values")
         else:
-            Print("fit does not require modification")
+            print("fit does not require modification")
 
         #4.6 save fit data
         self.area_fit=area_fit
@@ -639,23 +685,27 @@ class CalculateHWS:
             print('failed test 3 with nan values in h_break; h_break=',area_fits['h_break'])
             Status=True
         return Status
-    def correct_fit_params(self,area_fit)
+    def correct_fit_params(self,area_fit):
         
-        #set h_break to evenly spaced values between valid min and max
+        print('set h_break to evenly spaced values between valid min and max')
         wse_valid_min=-1500
         wse_valid_max=150000
-        hb=area_fits['h_break']
+        hb=area_fit['h_break']
         hb_=np.linspace(wse_valid_min,wse_valid_max,len(hb))
-        area_fits['h_break']=hb_
-        #set slopes to zero
-        slopes=area_fits['fit_coeffs'][1,:]
-        slopes_=np.linspace(0,np.nanmean(0,len(slopes))
-        area_fits['fit_coeffs'][1,:]=slopes_
-        area_fits['fit_coeffs'][0,:]= intercepts_
-        #set intercepts to uniform mean value
-        incp=area_fits['fit_coeffs'][0,:]
+        area_fit['h_break']=hb_
+        print(area_fit['h_break'])
+        #
+        print('set slopes to zero')
+        slopes=area_fit['fit_coeffs'][0,:]
+        slopes_=np.linspace(0,0,len(slopes))
+        area_fit['fit_coeffs'][0,:]=slopes_[:,np.newaxis]
+        print(area_fit['fit_coeffs'][0,:])
+        #
+        print('set intercepts to uniform mean value')
+        incp=area_fit['fit_coeffs'][1,:]
         incp_=np.linspace(np.nanmean(incp),np.nanmean(incp),len(incp))
-        area_fits['fit_coeffs'][0,:]= incp_
+        area_fit['fit_coeffs'][1,:]= incp_[:,np.newaxis]
+        print(area_fit['fit_coeffs'][1,:])
         return area_fit
 
 def ChooseInitParamsInner(h,w):
