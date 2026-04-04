@@ -220,28 +220,28 @@ class CalculateHWS:
                 
 
     def MapPointToHypsometricCurve(self,h,w):
-        # sds=[0,1,2]
+        sds=[0,1,2]
 
-        # hhat=np.nan
-        # what=np.nan
+        hhat=np.nan
+        what=np.nan
 
-        # for sd in sds:
-        #     hhatsd,whatsd = self.MapPointToSubDomain(sd,h,w)
+        for sd in sds:
+            hhatsd,whatsd = self.MapPointToSubDomain(sd,h,w)
 
-        #     #print('for subdomain',sd,'mapped point=',hhatsd,whatsd)
+            #print('for subdomain',sd,'mapped point=',hhatsd,whatsd)
 
-        #     DataInSubdomain = (hhatsd >= self.area_fit['h_break'][sd] and hhatsd < self.area_fit['h_break'][sd+1] )
-        #     DataValidExtrapLow = (sd ==0 and hhatsd < self.area_fit['h_break'][0])
-        #     DataValidExtrapHi = (sd == 2 and hhatsd > self.area_fit['h_break'][2])
-        #     DataValidExtrap = DataValidExtrapHi or DataValidExtrapLow
+            DataInSubdomain = (hhatsd >= self.area_fit['h_break'][sd] and hhatsd < self.area_fit['h_break'][sd+1] )
+            DataValidExtrapLow = (sd ==0 and hhatsd < self.area_fit['h_break'][0])
+            DataValidExtrapHi = (sd == 2 and hhatsd > self.area_fit['h_break'][2])
+            DataValidExtrap = DataValidExtrapHi or DataValidExtrapLow
 
-        #     if DataInSubdomain or DataValidExtrap:
-        #         hhat=hhatsd
-        #         what=whatsd
+            if DataInSubdomain or DataValidExtrap:
+                hhat=hhatsd
+                what=whatsd
 
-        # if np.isnan(hhat) and self.Verbose:
-        #     print('data point did not map to a valid sub-domain...')
-        # Find closest breakpoint to h
+        if np.isnan(hhat) and self.Verbose:
+            print('data point did not map to a valid sub-domain...')
+        #Find closest breakpoint to h
         close_break = np.argmin(np.abs(self.area_fit['h_break'] - h))
 
         # If hhat is beyond the maximum observed h, map point to final breakpoint
