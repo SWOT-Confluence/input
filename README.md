@@ -15,6 +15,8 @@ Build a Docker image: `docker build -t input .`
 **Command line arguments:**
 
 - -i: index to locate reach and nodes in JSON file
+- -a: index range to iterate over (downloads reaches [i: i+a])
+- -k: flag to skip downloading reaches that already exist in the output dir
 - -r: path to reach node JSON file
 - -p: path to cycle pass JSON file
 - -s: path to S3 shapefiles list JSON file
@@ -22,6 +24,13 @@ Build a Docker image: `docker build -t input .`
 - -d: directory to save output to
 - -l: indicates local run (optional)
 - -f: name of shapefile directory for local runs (optional)
+
+**Local/HPC excution**
+
+Hydrocron will run without an API key, but `input` will now look for a credential file here `~/.hydrocron/credentials`.  This file should be json formatted as:
+```
+{"api_key": "<API_KEY_HERE>"}
+```
 
 **Execute a Docker container:**
 
