@@ -17,8 +17,11 @@ RUN /usr/local/bin/python -m venv /app/env \
 # FROM stage3 as stage4
 COPY ./input /app/input/
 COPY run_input.py /app/run_input.py
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 LABEL version="1.0" \
         description="Containerized Input module." \
         "confluence.contact"="ntebaldi@umass.edu" \
         "algorithm.contact"="ntebaldi@umass.edu"
-ENTRYPOINT ["/app/env/bin/python3", "/app/run_input.py"]
+#ENTRYPOINT ["/app/env/bin/python3", "/app/run_input.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
