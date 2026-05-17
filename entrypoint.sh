@@ -24,7 +24,8 @@ check_mount() {
   echo "EFS mount ready: $path"
 }
 
-check_mount "/mnt/data/sword"
+# Check all required mounts before starting the application to avoid NFS issues
+check_mount "/mnt/data/sword/na_sword_v17.nc"
 
 echo "All mounts ready, starting application..."
 exec /app/env/bin/python3 /app/run_input.py "$@"
