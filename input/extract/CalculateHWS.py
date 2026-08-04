@@ -95,7 +95,10 @@ class CalculateHWS:
         # 3 constrain heights and widths to be self-consistent
         print("main function before constrainHW")
         print(self.area_fit['h_break'])
-        self.ConstrainHW()
+        if self.fit_status:
+            print('skipping HW_constraint due to static fit beingg triggered')
+        else:
+            self.ConstrainHW()
         print("main function after constrainHW")
         print(self.area_fit['h_break'])
 
@@ -219,7 +222,7 @@ class CalculateHWS:
                  self.w[0,:]=what[0,:]
 
             print('in constrain before hbreak reset')
-            print(self.area_fit['h_break'])
+            print(self.area_fit['h_break'])            
             self.area_fit['h_break'][0]=np.nanmin(hhat)
             self.area_fit['h_break'][3]=np.nanmax(hhat)
             print('in constrain after hbreak reset')
@@ -460,6 +463,7 @@ class CalculateHWS:
              ReturnSolution=True
              Jset,p_inner_set=SSE_outer(init_params_outer,self.h[r,igoodhw],self.w[r,igoodhw],ReturnSolution,self.sigh,self.sigw,self.Verbose)
              # If set fit is implausible (slopes exceed arbitrary value), impose rectangular fit at median width
+             #0,1,2,3?
              if p_inner_set[0] > 10000 or p_inner_set[2] > 10000 or p_inner_set[4] > 10000:
                 print('Implausible set fit. Implementing rectangular fit.')
 
@@ -637,12 +641,12 @@ class CalculateHWS:
         Hbar=nanmedian(self.h[r,:])
         wbar=nanmedian(self.w[r,:])
 
-        dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
+        #dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
 
         area_fit['med_flow_area']=dA_Hbar
         #Check fit for errors
         status=self.do_area_fit_checks(area_fit)
-        
+        self.fit_status=status
         if status:
             print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
@@ -651,6 +655,9 @@ class CalculateHWS:
         else:
             print("fit does not require modification")
 
+        dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
+        print('Da_Hbar')
+        print(dA_Hbar)
         #4.6 save fit data
         self.area_fit=area_fit
         print("after save")
