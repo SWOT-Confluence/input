@@ -218,9 +218,12 @@ class CalculateHWS:
                  self.h[0,:]=hhat[0,:]
                  self.w[0,:]=what[0,:]
 
-            
+            print('in constrain before hbreak reset')
+            print(self.area_fit['h_break'])
             self.area_fit['h_break'][0]=np.nanmin(hhat)
             self.area_fit['h_break'][3]=np.nanmax(hhat)
+            print('in constrain after hbreak reset')
+            print(self.area_fit['h_break'])
                 
 
     def MapPointToHypsometricCurve(self,h,w):
