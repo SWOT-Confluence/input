@@ -642,12 +642,14 @@ class CalculateHWS:
             print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
             print("fit set to static values")
-            print(self.area_fit['h_break'])
+            
         else:
             print("fit does not require modification")
 
         #4.6 save fit data
         self.area_fit=area_fit
+        print("after save")
+        print(self.area_fit['h_break'])
 
         #if self.Verbose:
             #print('area fit parameters=',self.area_fit)
