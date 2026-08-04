@@ -246,28 +246,28 @@ class CalculateHWS:
                 hhat=hhatsd
                 what=whatsd
 
-        if np.isnan(hhat) and self.Verbose:
-            print('data point did not map to a valid sub-domain...')
-        #Find closest breakpoint to h
-        close_break = np.argmin(np.abs(self.area_fit['h_break'] - h))
+            if np.isnan(hhat) and self.Verbose:
+                print('data point did not map to a valid sub-domain...')
+            #Find closest breakpoint to h
+            close_break = np.argmin(np.abs(self.area_fit['h_break'] - h))
 
-        # If hhat is beyond the maximum observed h, map point to final breakpoint
-        if close_break == 3:
+            # If hhat is beyond the maximum observed h, map point to final breakpoint
+            if close_break == 3:
 
-            # Retrieve final region fit
-            p0 = self.area_fit['fit_coeffs'][1, close_break-1, 0]  # intercept
-            p1 = self.area_fit['fit_coeffs'][0, close_break-1, 0]  # slope
+                # Retrieve final region fit
+                p0 = self.area_fit['fit_coeffs'][1, close_break-1, 0]  # intercept
+                p1 = self.area_fit['fit_coeffs'][0, close_break-1, 0]  # slope
 
-        # Get fit from region nearest to h
-        else:
+            # Get fit from region nearest to h
+            else:
 
-            # Retrieve region fit
-            p0 = self.area_fit['fit_coeffs'][1, close_break, 0]  # intercept
-            p1 = self.area_fit['fit_coeffs'][0, close_break, 0]  # slope
+                # Retrieve region fit
+                p0 = self.area_fit['fit_coeffs'][1, close_break, 0]  # intercept
+                p1 = self.area_fit['fit_coeffs'][0, close_break, 0]  # slope
 
-            # Map point to intersection of subdomain fit and breakpoint
-            hhat = self.area_fit['h_break'][close_break]
-            what = p0 + p1 * hhat
+                # Map point to intersection of subdomain fit and breakpoint
+                hhat = self.area_fit['h_break'][close_break]
+                what = p0 + p1 * hhat
 
         return hhat,what
                     
