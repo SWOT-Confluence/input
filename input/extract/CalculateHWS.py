@@ -697,7 +697,10 @@ class CalculateHWS:
         wse_valid_max=150000
         hb=area_fit['h_break']
         hb_=np.linspace(wse_valid_min,wse_valid_max,len(hb))
-        area_fit['h_break']=hb_
+        for b in range(len(hb_)):
+            area_fit['h_break'][b]=hb_[b]
+
+        #area_fit['h_break']=hb_
         print(area_fit['h_break'])
         #
         print('set slopes to zero')
