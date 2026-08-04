@@ -640,6 +640,7 @@ class CalculateHWS:
             print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
             print("fit set to static values")
+            print(area_fit['h_break'])
         else:
             print("fit does not require modification")
 
