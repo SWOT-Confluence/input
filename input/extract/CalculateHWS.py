@@ -93,6 +93,8 @@ class CalculateHWS:
             #    dAOpt=-1 
         
         # 3 constrain heights and widths to be self-consistent
+        print("main function before constrainHW")
+        print(self.area_fit['h_break'])
         self.ConstrainHW()
 
         # if self.Verbose:
@@ -640,7 +642,7 @@ class CalculateHWS:
             print("fit requires modification")
             area_fit=self.correct_fit_params(area_fit)
             print("fit set to static values")
-            print(area_fit['h_break'])
+            print(self.area_fit['h_break'])
         else:
             print("fit does not require modification")
 
