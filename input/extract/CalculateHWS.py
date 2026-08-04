@@ -96,6 +96,8 @@ class CalculateHWS:
         print("main function before constrainHW")
         print(self.area_fit['h_break'])
         self.ConstrainHW()
+        print("main function after constrainHW")
+        print(self.area_fit['h_break'])
 
         # if self.Verbose:
         #     self.plotHW()
