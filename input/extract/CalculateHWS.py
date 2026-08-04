@@ -643,7 +643,7 @@ class CalculateHWS:
 
         #dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
 
-        area_fit['med_flow_area']=dA_Hbar
+        #area_fit['med_flow_area']=dA_Hbar
         #Check fit for errors
         status=self.do_area_fit_checks(area_fit)
         self.fit_status=status
@@ -656,6 +656,7 @@ class CalculateHWS:
             print("fit does not require modification")
 
         dA_Hbar,hhat,what,dAunc=area(Hbar, wbar, area_fit)
+        area_fit['med_flow_area']=dA_Hbar
         print('Da_Hbar')
         print(dA_Hbar)
         #4.6 save fit data
