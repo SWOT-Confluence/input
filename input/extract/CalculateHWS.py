@@ -19,7 +19,7 @@ import warnings
 class CalculateHWS:    
         
     # def __init__(self,D,RiverData,ConstrainHWSwitch=False,CalcAreaFitOpt=0,dAOpt=0,Verbose=False,σW=[]):
-    def __init__(self,D,RiverData):
+    def __init__(self,D,RiverData,pw):
 
 
         """  Initialize ReachObservation Ojbect. 
@@ -649,7 +649,7 @@ class CalculateHWS:
         self.fit_status=status
         if status:
             print("fit requires modification")
-            area_fit=self.correct_fit_params(area_fit)
+            area_fit=self.correct_fit_params(area_fit,pw)
             print("fit set to static values")
             
         else:
@@ -703,7 +703,7 @@ class CalculateHWS:
             print('failed test 3 with nan values in h_break; h_break=',area_fits['h_break'])
             Status=True
         return Status
-    def correct_fit_params(self,area_fit):
+    def correct_fit_params(self,area_fit,Prior_Width):
         
         print('set h_break to evenly spaced values between valid min and max')
         wse_valid_min=-1500
@@ -723,7 +723,8 @@ class CalculateHWS:
         print(area_fit['fit_coeffs'][0,:])
         #
         print('set intercepts to uniform mean value')
-        incp=area_fit['fit_coeffs'][1,:]
+        #incp=area_fit['fit_coeffs'][1,:]
+        incp=Prior_Width
         incp_=np.linspace(np.nanmean(incp),np.nanmean(incp),len(incp))
         area_fit['fit_coeffs'][1,:]= incp_[:,np.newaxis]
         print(area_fit['fit_coeffs'][1,:])
