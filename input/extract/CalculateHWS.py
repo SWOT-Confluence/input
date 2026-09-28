@@ -40,7 +40,7 @@ class CalculateHWS:
                 4. Calculate areas
                 5. Optionally add nans into timeseries for missing data
         """
-        self.pw=rw
+        self.pw=pw  
         # Parameters
         ConstrainHWSwitch=False
         CalcAreaFitOpt=3  # this optimizes the breakpoints indpendently using OLS approach
