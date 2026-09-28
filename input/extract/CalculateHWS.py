@@ -726,7 +726,7 @@ class CalculateHWS:
         print('set intercepts to uniform mean value')
         #incp=area_fit['fit_coeffs'][1,:]
         incp=Prior_Width
-        incp_=np.linspace(np.nanmean(incp),np.nanmean(incp),len(incp))
+        incp_=np.linspace(np.nanmean(incp),np.nanmean(incp),len(area_fit['fit_coeffs'][1,:]))
         area_fit['fit_coeffs'][1,:]= incp_[:,np.newaxis]
         print(area_fit['fit_coeffs'][1,:])
         return area_fit
