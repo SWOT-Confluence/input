@@ -40,6 +40,7 @@ class CalculateHWS:
                 4. Calculate areas
                 5. Optionally add nans into timeseries for missing data
         """
+        print(pw)
         self.pw=pw  
         # Parameters
         ConstrainHWSwitch=False
