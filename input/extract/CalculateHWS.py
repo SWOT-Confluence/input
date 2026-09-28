@@ -40,7 +40,7 @@ class CalculateHWS:
                 4. Calculate areas
                 5. Optionally add nans into timeseries for missing data
         """
-
+        self.pw=rw
         # Parameters
         ConstrainHWSwitch=False
         CalcAreaFitOpt=3  # this optimizes the breakpoints indpendently using OLS approach
@@ -382,7 +382,7 @@ class CalculateHWS:
         return beta1hat, beta0hat
 
     def CalcAreaFits(self,r=0):
-
+        pw=self.pw
         #warnings.filterwarnings("ignore", message="delta_grad == 0.0. Check if the approximated function is linear.")
 
         # this computes the SWOT-like height-width fit
