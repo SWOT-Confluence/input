@@ -346,7 +346,9 @@ def process_reach_via_hydrocron(reachid, nodeids, date_range, collection_name, a
         
         IO=HWS_IO(swot_dataset = reach_df, nt = len(reach_df))
         D=DomainHWS(IO.ObsData)
-        hws_obj = CalculateHWS(D, IO.ObsData)
+        pw=reach_df['p_width'][0]
+        logging.info("Prior width before cal HWS: %s", pw)
+        hws_obj = CalculateHWS(D, IO.ObsData,pw)
         if len(hws_obj.dAall) == 1:
             hws_obj.dAall = hws_obj.dAall[0]
         reach_df["d_x_area"] = hws_obj.dAall
